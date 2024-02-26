@@ -3,6 +3,16 @@ import regex
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from synchromesh import LarkCompletionEngine, HuggingFaceModel, predict_constrained, OpenAIModel
 
+from dataclasses import dataclass, field
+from transformers import HfArgumentParser, set_seed
+@dataclass
+class Arguments:
+    model: str = field(default="Phind/Phind-CodeLlama-34B-v2", metadata={"help": "HuggingFace Model"})
+def get_args():
+    parser = HfArgumentParser(Arguments)
+    args = parser.parse_args_into_dataclasses()[0]
+    return args
+args = get_args()
 
 class DafnyActionCompletionEngine:
     def __init__(self, current_program):
@@ -56,8 +66,8 @@ method intersperse(numbers: seq<int>, delimiter: int) returns (interspersed: seq
     comp_engine = DafnyActionCompletionEngine(program)
 
     # Can be any huggingface model string or local path to weights.
-    HF_MODEL = 'gpt2'
-    gpt2 = AutoModelForCausalLM.from_pretrained(HF_MODEL, device_map='auto')
+    HF_MODEL = args.model
+    gpt = AutoModelForCausalLM.from_pretrained(HF_MODEL, device_map='auto')
     tokenizer = AutoTokenizer.from_pretrained(HF_MODEL)
 
     # These should work too:
@@ -65,7 +75,7 @@ method intersperse(numbers: seq<int>, delimiter: int) returns (interspersed: seq
     # lm = OpenAIModel(model="text-curie-001", prompt_template=verification_prompt, temperature=1.)
     # Note that OpenAI now considers the Completions API as "legacy", which we use for their models.
 
-    lm = HuggingFaceModel(gpt2, tokenizer=tokenizer, prompt_template=verification_prompt, temperature=0.25)
+    lm = HuggingFaceModel(gpt, tokenizer=tokenizer, prompt_template=verification_prompt, temperature=0.25)
 
     num_samples = 10
     for i in range(num_samples):

@@ -3,7 +3,7 @@
 To run example.py:
 
 1- Clone the synchromesh repo (https://github.com/kanishkg/synchromesh/). Install locally with `python setup.py install` (with --user to install in your home, sudo to install globally, or in a virtual env)
-2- Run `python example.py`
+2- Run `python example.py --model gp2`
 
 It should download the GPT-2 weights and run it on a simple example.
 
