@@ -39,7 +39,7 @@ def test_dafny_completion_engine():
 
     # Can be any huggingface model string or local path to weights.
     HF_MODEL = args.model
-    gpt = AutoModelForCausalLM.from_pretrained(HF_MODEL, device_map='auto')
+    gpt = AutoModelForCausalLM.from_pretrained(HF_MODEL, device_map='auto', load_in_8bit=True)
     tokenizer = AutoTokenizer.from_pretrained(HF_MODEL)
 
     # These should work too:

@@ -3,7 +3,7 @@ import outlines
 from cmdline import args
 from test_example import program, verification_prompt
 
-model = outlines.models.transformers(args.model)
+model = outlines.models.transformers(args.model, model_kwargs={'load_in_8bit':True})
 
 #ln = outlines.generate.format(model, int)
 program_lines = program.split('\n')
