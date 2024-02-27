@@ -10,7 +10,7 @@ program_lines = program.split('\n')
 all_program_lines = map(str, range(1, len(program_lines)+1))
 ln = outlines.generate.choice(model, all_program_lines)
 cmd = outlines.generate.choice(model, ["assert", "invariant"])
-prop = outlines.generate.regex(model, r"[^;]+")
+prop = outlines.generate.regex(model, r"[^;]+;")
 
 def gen1():
     p1 = f"{verification_prompt}\n// On line "
