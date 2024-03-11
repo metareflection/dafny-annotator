@@ -16,6 +16,28 @@ method intersperse(numbers: seq<int>, delimiter: int) returns (interspersed: seq
     }
 }'''.strip()
 
-verification_prompt = f"""Given the following Dafny program:
-    {program}
-    Add an assertion or invariant in order to verify the program.\n"""
+verification_prompt = """Given the following Dafny program:
+Add an assertion or an invariant in order to verify the program.
+
+Program 1:
+method maxArray(a: array<int>) returns (m: int)
+  requires a.Length >= 1
+  ensures forall k :: 0 <= k < a.Length ==> m >= a[k]
+  ensures exists k :: 0 <= k < a.Length && m == a[k]
+{
+  m := a[0];
+  var index := 1;
+  while (index < a.Length)
+     decreases a.Length - index
+  {
+    m := if m>a[index] then  m else a[index];
+    index := index + 1;
+  }
+}
+
+Action 1: // On line 9, add invariant 0 <= index <= a.Length;
+
+Program 2:
+"""+program+"""
+
+Action 2:"""
