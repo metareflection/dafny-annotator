@@ -1,0 +1,5 @@
+('2', 'assert', '0 <= i < |numbers|;')
+('3', 'assert', '|interspersed| == if |numbers| > 0 then 2 * |numbers| - 1 else 0;')
+('6', 'assert', '\n    assert |interspersed| == if |numbers| > 0 then 2 * |numbers| - 1 else 0;')
+('9', 'assert', '≤ 0;')
+('4', 'assert', '0 <= i < |numbers|;')

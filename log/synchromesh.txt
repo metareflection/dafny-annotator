@@ -1,0 +1,20 @@
+26.84s in inference, 25.28s on LLM inference (94.2%)
+Phind/Phind-CodeLlama-34B-v2 prediction: // On line 10, add assert interspersed[i]()0;
+27.45s in inference, 25.59s on LLM inference (93.2%)
+Phind/Phind-CodeLlama-34B-v2 prediction: // On line 10, add assert interspersed[i]in[numbers];
+31.56s in inference, 26.55s on LLM inference (84.1%)
+Phind/Phind-CodeLlama-34B-v2 prediction: // On line 1, add assert (0<delimiter)toTheDafnyProgram;
+61.40s in inference, 44.66s on LLM inference (72.7%)
+Phind/Phind-CodeLlama-34B-v2 prediction: // On line 1, add assert (0<delimiter)toTheDafnyProgram:TheDafnyProgramTheDafnyProgramAfterAddingTheInvar;
+24.80s in inference, 23.39s on LLM inference (94.3%)
+Phind/Phind-CodeLlama-34B-v2 prediction: // On line 10, add assert interspersed[i]0;
+61.31s in inference, 45.75s on LLM inference (74.6%)
+Phind/Phind-CodeLlama-34B-v2 prediction: // On line 1, add assert (0<delimiter)toTheDafnyProgram:TheDafnyProgramTheDafnyProgramWithAssertion:TheDf;
+30.34s in inference, 27.65s on LLM inference (91.1%)
+Phind/Phind-CodeLlama-34B-v2 prediction: // On line 10, add assert interspersed[i]in[numbers[i]];
+28.44s in inference, 26.56s on LLM inference (93.4%)
+Phind/Phind-CodeLlama-34B-v2 prediction: // On line 10, add assert interspersed[i]in[numbers];
+27.96s in inference, 25.51s on LLM inference (91.2%)
+Phind/Phind-CodeLlama-34B-v2 prediction: // On line 10, add assert interspersed[i]in[0];
+23.69s in inference, 22.32s on LLM inference (94.2%)
+Phind/Phind-CodeLlama-34B-v2 prediction: // On line 8, add assert interspersed[i]0;
