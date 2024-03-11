@@ -24,5 +24,5 @@ def gen1():
     #print(r3)
     return (r1, r2, r3)
 
-for i in range(0, 5):
+for i in range(0, 10):
     print(gen1())
