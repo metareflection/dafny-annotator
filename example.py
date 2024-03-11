@@ -26,7 +26,8 @@ class DafnyActionCompletionEngine:
             # Since the prefix is in the line number, we can
             # limit it to variables that have been declared
             # up to the current point.
-            return regex.compile('[()><%0-9a-zA-Z\\[\\]:]{0,80};\n')
+            #return regex.compile('[()><%0-9a-zA-Z\\[\\]:]{0,80};\n')
+            return regex.compile('[^;]{0,80};\n')
 
     def is_complete(self, prefix: str) -> bool:
         return prefix.endswith(';\n')
