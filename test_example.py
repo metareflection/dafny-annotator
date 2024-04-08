@@ -35,9 +35,10 @@ method maxArray(a: array<int>) returns (m: int)
   }
 }
 
-Action 1: // On line 9, add invariant 0 <= index <= a.Length;
+Action 1: // Add invariant 0 <= index <= a.Length;
 
 Program 2:
 """+program+"""
 
 Action 2:"""
+
