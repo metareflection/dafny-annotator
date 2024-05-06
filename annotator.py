@@ -48,8 +48,8 @@ def propose(model: HuggingFaceModel, program: DafnyProgram, num_samples: int) ->
 
 
 def load_lm_for_verification(model_name: str) -> HuggingFaceModel:
-    lm = AutoModelForCausalLM.from_pretrained(model_name, device_map='auto', load_in_8bit=True)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
+    lm = AutoModelForCausalLM.from_pretrained(model_name, device_map='auto', load_in_8bit=True)
     return HuggingFaceModel(lm, tokenizer=tokenizer, prompt_template='', temperature=1)
 
 
@@ -68,11 +68,41 @@ def load_benchmarks(path: str) -> list[DafnyProgram]:
     return benchmarks
 
 
+def annotate(program: DafnyProgram,
+             model: HuggingFaceModel,
+             max_attempts: int = 10) -> DafnyProgram:
+
+    annotated_program = program
+
+    for _ in range(max_attempts):
+        model.prompt_template = make_prompt(annotated_program)
+        annotations, new_programs = propose(model, annotated_program, 1)
+        added_annotation = False
+
+        print('Trying', len(new_programs), 'proposals')
+        for new_program in new_programs:
+            feedback = new_program.verify()
+
+            if feedback == VerificationOutcome.SUCCESS:
+                return new_program
+
+            if feedback == VerificationOutcome.GOAL_UNPROVEN:
+                added_annotation = True
+                annotated_program = new_program
+                print('Progress:')
+                print(annotated_program)
+                break
+
+        if not added_annotation:
+            print('All proposals failed')
+
+    return annotated_program
+
+
 def test():
     from cmdline import args
 
     out = open('run.log', 'w')
-
 
     def log(line):
         out.write(line + '\n')
@@ -103,50 +133,17 @@ def test():
                 log('Skipping already verified program')
                 continue
 
-            model.prompt_template = make_prompt(program)
-            annotations, new_programs = propose(model, program, 1)
-            good_predictions = set()
+            annotated_program = annotate(program, model)
 
-            print(f'Proposed {len(annotations)} annotations, {len(new_programs)} programs for program #{i} - {program.name}')
+            log('*Annotated program:*:')
+            log(str(annotated_program))
 
-            log('*Proposed annotations*:')
-            for i, p in enumerate(annotations):
-                log(f'1. {p}')
-
-            overall_outcome = 'fail :x:'
-            children = 0
-
-            for j, new_program in enumerate(new_programs):
-                outcome = new_program.verify()
-                print(f'    {j}', outcome)
-
-                if outcome != VerificationOutcome.FAIL:
-                    print('Progress!')
-                    print(new_program)
-                    children += 1
-                    prediction = '; '.join(new_program.diff_annotations(program))
-
-                    if outcome == VerificationOutcome.SUCCESS:
-                        overall_outcome = 'success :white_check_mark:'
-                        children = 0
-                        good_predictions = {prediction}
-                        break
-                    else:
-                        good_predictions.add(prediction)
-                        overall_outcome = 'progress :arrow_right:'
-
-            log(f'*Result*: {overall_outcome}')
-            if children:
-                log(f'*Children*: {children}')
-            if good_predictions:
-                log('*Verified predictions:*')
-                for i, p in enumerate(good_predictions):
-                    log(f'1. {p}')
+            feedback = annotated_program.verify()
+            log(f'*Feedback*: {feedback}')
         except KeyboardInterrupt:
             break
         except Exception as e:
             log(f'*Error*: {e}')
-            breakpoint()
             import traceback; traceback.print_exc()
             print(f'Failed to propose for {program}, probably too long.')
 
