@@ -22,9 +22,23 @@ class DafnyProgram:
         self.lines = [line for line in program.split('\n') if line.strip()]
         self.name = name
 
+    def to_json_obj(self):
+        return {
+            'name': self.name,
+            'program': str(self)
+        }
+
+    @staticmethod
+    def from_json_obj(json):
+        return DafnyProgram(json['program'], json['name'])
+
     def insert(self, line, content):
         new_lines = self.lines.copy()
         new_lines.insert(line + 1, content)
+        return DafnyProgram('\n'.join(new_lines), self.name)
+
+    def remove_line(self, line_number) -> 'DafnyProgram':
+        new_lines = self.lines[:line_number] + self.lines[line_number + 1:]
         return DafnyProgram('\n'.join(new_lines), self.name)
 
     def __str__(self):
@@ -91,6 +105,20 @@ class DafnyProgram:
 
         return DafnyProgram('\n'.join(new_lines), self.name)
 
+    def strip_first_annotation(self) -> (int, str, 'DafnyProgram'):
+        start_line = self.first_line()
+
+        if start_line is None:
+            return None, None, self
+
+        for i, line in enumerate(self.lines[start_line + 1:]):
+            line = line.strip()
+            first_word = line.split(' ')[0]
+            if first_word in ANNOTATION_KEYWORDS:
+                return start_line + i + 1, line, self.remove_line(start_line + i + 1)
+
+        return None, None, self
+
     def annotations(self) -> list[str]:
         start_line = self.first_line()
 
@@ -108,3 +136,16 @@ class DafnyProgram:
 
     def diff_annotations(self, rhs) -> set[str]:
         return set(self.annotations()) - set(rhs.annotations())
+
+    def extract_examples(self) -> list[('DafnyProgram', str)]:
+        examples = []
+
+        program = self
+
+        while True:
+            line_number, annotation, program = program.strip_first_annotation()
+            if line_number is None:
+                break
+            examples.append((program, annotation))
+
+        return examples
