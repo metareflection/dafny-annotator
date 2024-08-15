@@ -4,35 +4,41 @@ import regex
 
 END = 'END###'
 
-class DafnyActionCompletionEngine:
-    def __init__(self, current_program):
-        self._current_program_lines = current_program.split('\n')
+RATIONALE_PATTERN = '\\s?[[^\\]]*\\]'
+RATIONALE_ANNOTATION_REGEX = regex.compile(f'({END})\\n|({RATIONALE_PATTERN}\\s*(assert|invariant|decreases) )')
+RATIONALE_ONLY_REGEX = regex.compile(f'({END})\\n|(\\s*(assert|invariant|decreases) )')
+INVARIANT_REGEX = regex.compile('[^\\n]{0,100}\\n')
 
-    def complete(self, prefix: str) -> list[regex.regex]:
-        # Will allow:
-        # '' -> "// On line <L>, add assert"
-        #     | "// On line <L>, add invariant"
+class DafnyActionCompletionEngine:
+    def __init__(self, current_program, with_rationale=False):
+        self._current_program_lines = current_program.split('\n')
+        self._with_rationale = with_rationale
+
+    def complete(self, prefix: str) -> regex.regex:
         last_line = prefix.split('\n')[-1]
         if not last_line:
-            #line_numbers = ('(' +
-            #                '|'.join(map(str, range(len(self._current_program_lines)))) +
-            #                ')')
-            return regex.compile(f'({END})\\n|(\\s?\\[[^\\]]*\\]\\s*(assert|invariant|decreases) )')
+            if self._with_rationale:
+                return RATIONALE_ANNOTATION_REGEX
+            else:
+                return RATIONALE_ONLY_REGEX
         else:
-            # Any of the allowed characters, up to 100 of them.
-            # Here, we can limit it to syntactically valid expressions
-            # that also only use valid variable names.
-            # Since the prefix is in the line number, we can
-            # limit it to variables that have been declared
-            # up to the current point.
-            #return regex.compile('[()><%0-9a-zA-Z\\[\\]:]{0,80};\n')
-            return regex.compile('[^\\n]{0,100}\\n')
+            return INVARIANT_REGEX
 
     def is_complete(self, prefix: str) -> bool:
         return prefix.endswith(f'{END}\n')
 
 
-def make_prompt(test_program: str) -> str:
+def make_prompt(test_program: str, with_rationale=False) -> str:
+    PROMPT_RATIONALES = [
+        '[Bound the index] ',
+        '[Adapt the first ensures clause as an invariant] ',
+        '[Adapt the second ensures clause as an invariant] ',
+        '[Adapt the third ensures clause as an invariant] ',
+    ]
+
+    if not with_rationale:
+        PROMPT_RATIONALES = [''] * 4
+
     return f"""Given each Dafny program, propose an assertion, invariant or decreases statement in order to verify the program.
 
 Program 1:
@@ -51,7 +57,7 @@ method maxArray(a: array<int>) returns (m: int)
   }}
 }}
 
-Action: [Bounding the index] invariant 0 <= index <= a.Length
+Action: {PROMPT_RATIONALES[0]}invariant 0 <= index <= a.Length
 {END}
 
 Program 2:
@@ -72,9 +78,9 @@ method intersperse(numbers: seq<int>, delimiter: int) returns (interspersed: seq
     }}
 }}
 
-Action: [Adapt the first ensures clause as an invariant] invariant |interspersed| == if i > 0 then 2 * i - 1 else 0
-[Adapt the second ensures clause as an invariant] invariant forall i0 :: 0 <= i0 < |interspersed| ==> i0 % 2 == 0 ==> interspersed[i0] == numbers[i0 / 2]
-[Adapt the third ensures clause as an invariant] invariant forall i0 :: 0 <= i0 < |interspersed| ==> i0 % 2 == 1 ==> interspersed[i0] == delimiter
+Action: {PROMPT_RATIONALES[1]}invariant |interspersed| == if i > 0 then 2 * i - 1 else 0
+{PROMPT_RATIONALES[2]}invariant forall i0 :: 0 <= i0 < |interspersed| ==> i0 % 2 == 0 ==> interspersed[i0] == numbers[i0 / 2]
+{PROMPT_RATIONALES[3]}invariant forall i0 :: 0 <= i0 < |interspersed| ==> i0 % 2 == 1 ==> interspersed[i0] == delimiter
 {END}
 
 Program 3:

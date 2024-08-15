@@ -45,7 +45,6 @@ class DafnyProgram:
                 return i
         return None
 
-
     def first_line(self):
         method_line = self.method_line()
 
