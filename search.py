@@ -25,8 +25,12 @@ class SearchNode:
 
     def enumerate_successors_with_annotation(self, annotation: str) -> list['SearchNode']:
         successors = []
-        for i in range(0, len(self.program.lines)):
-            new_program = self.program.insert(i, annotation)
+        for i in range(self._program.first_line(), self._program.last_line()):
+            l = self._program.lines[i]
+            # Ignore invariants added outside of loops
+            if 'invariant' in annotation and ('for' not in l and 'while' not in l and 'invariant' not in l):
+                continue
+            new_program = self._program.insert(i, annotation)
             successors.append(SearchNode(new_program, self, (i, annotation)))
         return successors
 
@@ -38,9 +42,16 @@ class Proposer:
 
 
 class VLLMProposer(Proposer):
-    def __init__(self, model_name: str, num_proposals: int = 2, temperature: float = 1.0,
-                 with_rationale: bool = False):
+    def __init__(
+            self,
+            model_name: str,
+            tokenizer=None,
+            num_proposals: int = 2,
+            temperature: float = 1.0,
+            with_rationale: bool = False
+    ):
         self._llm = LLM(model=model_name,
+                        tokenizer=tokenizer,
                         tensor_parallel_size=torch.cuda.device_count())
         self._sampling_params = SamplingParams(
             n=num_proposals,
@@ -51,7 +62,6 @@ class VLLMProposer(Proposer):
         self._with_rationale = with_rationale
 
     def propose(self, nodes: list[SearchNode]) -> list[list[str]]:
-        proposals = []
         prompts = [make_prompt(str(node.program()), with_rationale=self._with_rationale)
                    for node in nodes]
 
@@ -97,19 +107,18 @@ class GreedySearch(SearchAlgorithm):
         return SearchNode(program)
 
     def step(self, state: SearchNode, proposals: list[str]) -> SearchNode:
+        successors = []
+
         for p in proposals:
-            successors = state.enumerate_successors_with_annotations(proposals)
-            outcomes = [s.verification_outcome() for s in successors]
+            successors.extend(state.enumerate_successors_with_annotation(p))
 
-            # Look for a fully verified program first.
-            for s, o in zip(successors, outcomes):
-                if o == VerificationOutcome.SUCCESS:
-                    return s
+        if len(successors) > 100:
+            successors = successors[:100]
 
-            # Otherwise, look for a program that Dafny does not reject.
-            for s, o in zip(successors, outcomes):
-                if o != VerificationOutcome.FAIL:
-                    return s
+        for s in successors:
+            o = s.verification_outcome()
+            if o != VerificationOutcome.FAIL:
+                return s
 
         # If we couldn't make progress, return the original program.
         return state
@@ -123,7 +132,7 @@ class GreedySearch(SearchAlgorithm):
 
 def batch_greedy_search(programs: list[DafnyProgram],
                         proposer: Proposer,
-                        max_iterations: int = 10,
+                        max_iterations: int = 5,
                         ) -> list[DafnyProgram]:
     nodes = [SearchNode(p) for p in programs]
     result = [None] * len(nodes)
@@ -141,11 +150,22 @@ def batch_greedy_search(programs: list[DafnyProgram],
 
         unfinished_nodes = [nodes[i] for i in unfinished_indices]
         proposals = proposer.propose(unfinished_nodes)
-        for i in unfinished_indices:
-            nodes[i] = method.step(nodes[i], proposals[i])
-            is_done[i], p = method.is_done(nodes[i])
-            if is_done[i]:
-                result[i] = p
+        progress = 0
+
+        print('Verifying...')
+        for i, node_idx in tqdm(list(enumerate(unfinished_indices))):
+            new_node = method.step(nodes[node_idx], proposals[i])
+
+            if new_node is not nodes[node_idx]:
+                progress += 1
+
+            nodes[node_idx] = new_node
+            is_done[node_idx], p = method.is_done(nodes[node_idx])
+            if is_done[node_idx]:
+                print(p.name, 'verified!')
+                print(p)
+                result[node_idx] = p
+        print('Made progress in', progress, 'programs.')
 
     return result
 
@@ -153,10 +173,12 @@ def batch_greedy_search(programs: list[DafnyProgram],
 if __name__ == '__main__':
     from cmdline import args
 
-    # Load the Dafny programs to be verified.
+    proposer = VLLMProposer(model_name=args.model,
+                            with_rationale=False)
+
     N = 50
-    programs = load_benchmarks()
-    programs = [p.strip_annotations() for p in programs[:N]]
+    programs = load_benchmarks('DafnyBench/programs')
+    programs = [p.strip_annotations() for p in programs]
 
     # Get N programs that are not already verified.
     print('Selecting programs to verify...')
@@ -168,12 +190,11 @@ if __name__ == '__main__':
             if len(benchmarks) == N:
                 break
 
-    proposer = VLLMProposer(model_name=args.model)
-    results = batch_greedy_search(programs, proposer)
+    results = batch_greedy_search(benchmarks, proposer)
 
     print('Success rate:', sum(r is not None for r in results) / len(results))
 
-    for p, r in zip(programs, result):
+    for p, r in zip(benchmarks, results):
         print('####', p.name)
 
         if r is None:

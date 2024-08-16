@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
+from tqdm import tqdm
 import os
+import json
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from synchromesh import HuggingFaceModel, predict_constrained
@@ -66,6 +68,20 @@ def load_benchmarks(path: str) -> list[DafnyProgram]:
                     benchmarks.append(program)
 
     return benchmarks
+
+
+def load_nontrivial_benchmarks(path: str) -> list[DafnyProgram]:
+    if os.path.exists(os.path.join(path, 'nontrivial.json')):
+        with open(os.path.join(path, 'nontrivial.json'), 'r') as f:
+            nontrivial = json.load(f)
+            return [DafnyProgram.from_json_obj(p) for p in nontrivial]
+    b = load_benchmarks(path)
+    print('Loaded', len(b), 'benchmarks. Filtering non-trivial ones')
+    b = [p for p in tqdm(b) if p.strip_annotations().verify() != VerificationOutcome.SUCCESS]
+    with open(os.path.join(path, 'nontrivial.json'), 'w') as f:
+        json.dump([p.to_json_obj() for p in b], f)
+    print('Filtered', len(b), 'non-trivial benchmarks')
+    return b
 
 
 def annotate(program: DafnyProgram,

@@ -28,7 +28,7 @@ class DafnyActionCompletionEngine:
         return prefix.endswith(f'{END}\n')
 
 
-def make_prompt(test_program: str, with_rationale=False) -> str:
+def make_prompt(test_program: str, with_rationale=False, actions=None) -> str:
     PROMPT_RATIONALES = [
         '[Bound the index] ',
         '[Adapt the first ensures clause as an invariant] ',
@@ -40,7 +40,6 @@ def make_prompt(test_program: str, with_rationale=False) -> str:
         PROMPT_RATIONALES = [''] * 4
 
     return f"""Given each Dafny program, propose an assertion, invariant or decreases statement in order to verify the program.
-
 Program 1:
 method maxArray(a: array<int>) returns (m: int)
   requires a.Length >= 1
@@ -87,3 +86,8 @@ Program 3:
 {test_program}
 
 Action:"""
+
+    if not actions:
+        return p
+
+    return p + ' ' + '\n'.join(actions) + f'\n{END}\n'
