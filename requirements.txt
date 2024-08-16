@@ -2,3 +2,4 @@ tqdm
 transformers
 openai
 torch
+vllm
