@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import os
+import json
 from typing import Any, Optional
 
 from vllm import LLM, SamplingParams
@@ -25,6 +27,10 @@ class SearchNode:
 
     def enumerate_successors_with_annotation(self, annotation: str) -> list['SearchNode']:
         successors = []
+
+        if None in (self._program.first_line(), self._program.last_line()):
+            return []
+
         for i in range(self._program.first_line(), self._program.last_line()):
             l = self._program.lines[i]
             # Ignore invariants added outside of loops
@@ -52,6 +58,7 @@ class VLLMProposer(Proposer):
     ):
         self._llm = LLM(model=model_name,
                         tokenizer=tokenizer,
+                        max_model_len=4096,
                         tensor_parallel_size=torch.cuda.device_count())
         self._sampling_params = SamplingParams(
             n=num_proposals,
@@ -173,24 +180,42 @@ def batch_greedy_search(programs: list[DafnyProgram],
 if __name__ == '__main__':
     from cmdline import args
 
-    proposer = VLLMProposer(model_name=args.model,
-                            with_rationale=False)
-
     N = 50
     programs = load_benchmarks('DafnyBench/programs')
     programs = [p.strip_annotations() for p in programs]
 
+    proposer = VLLMProposer(model_name=args.model,
+                            with_rationale=False)
+
     # Get N programs that are not already verified.
     print('Selecting programs to verify...')
+    if os.path.exists('DafnyBench/.outcome_cache.json'):
+        with open('DafnyBench/.outcome_cache.json') as c_in:
+            outcome_cache = json.load(c_in)
+    else:
+        outcome_cache = {}
+
     benchmarks = []
 
     for p in tqdm(programs):
-        if p.verify() != VerificationOutcome.SUCCESS:
+        if len(str(p)) > 2048:
+            continue
+        if p.name in outcome_cache:
+            outcome = (VerificationOutcome.SUCCESS
+                       if outcome_cache[p.name] == 'VerificationOutcome.SUCCESS'
+                       else  VerificationOutcome.GOAL_UNPROVEN)
+        else:
+            outcome = p.verify()
+            outcome_cache[p.name] = str(outcome)
+            with open('DafnyBench/.outcome_cache.json', 'w') as c_out:
+                json.dump(outcome_cache, c_out)
+
+        if outcome != VerificationOutcome.SUCCESS:
             benchmarks.append(p)
             if len(benchmarks) == N:
                 break
 
-    results = batch_greedy_search(benchmarks, proposer)
+    results = batch_greedy_search(benchmarks, proposer, 7)
 
     print('Success rate:', sum(r is not None for r in results) / len(results))
 

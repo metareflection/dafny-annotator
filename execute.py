@@ -16,13 +16,13 @@ def execute(cmd, ext, v):
         outfn = "out.txt"
         errfn = "err.txt"
 
-        f = open(fn, "w")
+        f = open(fn, "w", encoding='utf-8')
         f.write(v)
         f.close()
 
         status = os.system("timeout 10s %s %s >%s 2>%s" % (cmd, fn, outfn, errfn))
 
-        f = open(outfn, "r")
+        f = open(outfn, "r", encoding='utf-8')
         outlog = f.read()
         f.close()
 
