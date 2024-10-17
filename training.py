@@ -4,14 +4,8 @@ import argparse
 import json
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from torchtune.data import InstructTemplate
-from torchtune.datasets import InstructDataset
 from tqdm import tqdm
 import openai
-
-from peft import PeftConfig, PeftModel
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch
 
 from annotator import load_nontrivial_benchmarks, load_benchmarks
 from program import VerificationOutcome
@@ -21,16 +15,15 @@ import completion
 OPENAI = openai.Client()
 
 
-class DafnyAnnotationTemplate(InstructTemplate):
-    @classmethod
-    def format(cls, sample: dict, column_map=None):
-        return completion.make_prompt(sample['program'], sample.get('rationale'),
-                                      [sample['output']])
-
-
 def print_nontrivial(args):
     programs = load_nontrivial_benchmarks('DafnyBench/programs')
     print(len(programs), 'non-trivial programs')
+
+
+def trim_program(program: str, max_length: int = 1000):
+    if len(program) > max_length:
+        return '...' + program[-max_length:]
+    return program
 
 
 def rationalize(program, annotation):
@@ -100,8 +93,8 @@ def make_rationalization_examples(args):
         json.dump(finetuning_examples, f, indent=2)
 
 
-def make_direct_examples(args):
-    programs = load_benchmarks('DafnyBench/programs')[args.skip:]
+def make_direct_examples(programs_path: str, output: str, skip: int = 0, max_length: int = 1024):
+    programs = load_benchmarks(programs_path or 'DafnyBench/programs')[skip:]
     examples = []
 
     for p in tqdm(programs):
@@ -110,18 +103,18 @@ def make_direct_examples(args):
     finetuning_examples = []
 
     for p, a in examples:
-        # For now skip very long programs to avoid OOMs.
-        if len(str(p)) > 1024:
-            continue
         finetuning_examples.append({
-            'program': str(p),
+            'program': trim_program(str(p), max_length),
             'output': a,
             'rationale': None,
         })
 
-    print('Extracted', len(finetuning_examples), 'training examples')
-    with open('direct_finetuning_examples.json', 'w') as f:
+    output_path = output or 'direct_finetuning_examples.json'
+
+    with open(output_path, 'w') as f:
         json.dump(finetuning_examples, f, indent=2)
+
+    print('Extracted', len(finetuning_examples), 'training examples, saved to', output_path)
 
 
 def merge_model(args):
@@ -135,18 +128,22 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', type=str, help='LLM name or path')
     parser.add_argument('--rationalize', action='store_true', help='Generate rationalization examples')
-    parser.add_argument('--extract-direct', action='store_true', help='Generate rationalization examples')
+    parser.add_argument('--extract-direct', action='store_true', help='Generate direct prediction examples')
     parser.add_argument('--nontrivial', action='store_true', help='Filter and save non-trivial benchmarks')
     parser.add_argument('--skip', type=int, default=200,
                         help='How many programs to skip (e.g. avoid test set)')
     parser.add_argument('--merge', action='store_true', help='Merge LoRA adapter with original model')
+    parser.add_argument('--output', type=str, help='Output path')
+    parser.add_argument('--programs', type=str,
+                        help='Path to root directory containing Dafny programs to use for training.',
+                        default='DafnyBench/programs')
 
     args = parser.parse_args()
 
     if args.rationalize:
         make_rationalization_examples(args)
     elif args.extract_direct:
-        make_direct_examples(args)
+        make_direct_examples(args.programs, args.output, args.skip)
     elif args.nontrivial:
         print_nontrivial(args)
     elif args.merge:
