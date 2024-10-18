@@ -143,16 +143,18 @@ peft_config = LoraConfig(
 
 
 def finetune(args):
-    # prefix = 'direct' if not args.with_rationales else 'rationalized'
-    prefix = 'merged_direct' if not args.with_rationales else 'rationalized'
-    #with open('direct_finetuning_examples.json') as d_in:
-    with open(f'{prefix}_finetuning_examples.json') as d_in:
-        dataset = json.load(d_in)
+    dataset = []
+
+    for t in args.training_set:
+        with open(t) as d_in:
+            dataset.extend(json.load(d_in))
+
+    print('Training set size:', len(dataset))
 
     for r in dataset:
         if args.with_rationales:
             rationale = r['rationale']
-            # TODO: this should be in the data generation.
+            # FIXME: this should be done during data generation.
             if rationale.startswith('Rationale: '):
                 rationale = rationale[len('Rationale: '):]
             r['text'] = completion.make_prompt(r['program'], with_rationale=True) + ' [' + rationale + '] ' + r['output'] + '\n' + completion.END
@@ -170,7 +172,7 @@ def finetune(args):
             response_template=tokenizer.encode(response_template)[2:],
             tokenizer=tokenizer)
     suffix = '-r' if args.with_rationales else ''
-    output_dir = f"models/synth-finetuned-{args.model.split('/')[-1]}{suffix}"
+    output_dir = args.output
 
     sft_config = SFTConfig(
             dataset_text_field="text",
@@ -233,7 +235,7 @@ if __name__ == '__main__':
     parser.add_argument('--finetune', action='store_true', help='Fine tune model on dataset of existing examples')
     parser.add_argument('--with-rationales', action='store_true', help='Fine tune model on dataset with rationales')
     parser.add_argument('--benchmark-dir', type=str, default='./DafnyBench/programs')
-    parser.add_argument('--training-data', nargs='*', type=str)
+    parser.add_argument('--training-set', nargs='*', type=str)
 
     args = parser.parse_args()
 
@@ -248,4 +250,4 @@ if __name__ == '__main__':
     elif args.finetune:
         finetune(args)
     elif args.merge_data:
-        merge(args.training_data, args.output)
+        merge(args.training_set, args.output)

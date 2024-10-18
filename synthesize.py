@@ -123,7 +123,9 @@ def extract_programs_from_graph(input_path: str,
     processed_count = 0
 
     for root, _, files in os.walk(input_path):
+        print('@', root)
         for file in files:
+            print('@@', file)
             if file.endswith('.json'):
                 json_path = os.path.join(root, file)
                 json_file_name = os.path.splitext(os.path.basename(json_path))[0]
@@ -132,19 +134,19 @@ def extract_programs_from_graph(input_path: str,
                     with open(json_path, 'r') as f:
                         data = json.load(f)
 
-                    if not isinstance(data, list):
-                        print(f"Warning: {json_path} does not contain a list. Skipping.")
+                    if not isinstance(data, dict) or not data.get('nodes'):
+                        print(f"Skipping {json_path} (not a serialized graph)")
                         continue
 
+                    data = data['nodes']
+
                     for index, obj in enumerate(data):
-                        if 'program' in obj and (
-                                'SUCCESS' in obj['dafny_feedback'] or
-                                (include_unproven and 'GOAL_UNPROVEN' in obj['dafny_feedback'])):
-                            output_file = f"{json_file_name}-{index}.dfy"
+                        if obj['type'] == 'program':
+                            output_file = f"{json_file_name}-{obj['id']}.dfy"
                             output_path = os.path.join(output_dir, output_file)
 
                             with open(output_path, 'w') as f:
-                                f.write(obj['program'])
+                                f.write(obj['content'])
 
                             print(f"Wrote {output_path}")
                             processed_count += 1
