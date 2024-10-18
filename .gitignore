@@ -1,3 +1,7 @@
 *~
 models
 logs
+wandb
+__pycache__
+# Huggingface login token
+tok
