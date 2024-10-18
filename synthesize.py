@@ -84,7 +84,7 @@ def generate_synthetic_dataset(
     synthetic_dataset = []
     good_programs = 0
 
-    OUTPUT_PATH = f"{model}-{num_programs}{"-" if suffix else ""}{suffix}.json"
+    OUTPUT_PATH = f"{model}-{num_programs}{'-' if suffix else ''}{suffix}.json"
 
     for i in tqdm(range(num_programs)):
         random_seed = random.sample(seed_dataset,

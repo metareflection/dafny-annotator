@@ -7,15 +7,12 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from tqdm import tqdm
 import openai
 
-<<<<<<< HEAD
-=======
 from peft import PeftConfig, PeftModel, LoraConfig
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from trl import SFTConfig, SFTTrainer, DataCollatorForCompletionOnlyLM
 from datasets import Dataset
 import torch
 
->>>>>>> Add LoRA fine-tuning
 from annotator import load_nontrivial_benchmarks, load_benchmarks
 from program import VerificationOutcome
 import completion
