@@ -1,0 +1,10 @@
+[
+  {
+    "role": "system",
+    "content": "You are a creative and correct Dafny programmer. Your goal is to help generate novel, interesting Dafny programs to serve as diverse training data for an AI model."
+  },
+  {
+    "role": "user",
+    "content": "Your goal now is to generate a small patch to be applied to this existing Dafny program:\n$PROGRAM\n\nPlease propose a small modification to the current program. Your output should be a valid Dafny program starting with \"// BEGIN DAFNY AT LINE $LINE_NUMBER\", where $LINE_NUMBER is some line number referring to the existing program. Note that $LINE_NUMBER will be the number of your first line (i.e., current line N will be deleted -- to append, use last line + 1). On your last line, write \"// END DAFNY\". The modification should be simple, at most adding or changing a few methods or data structures, or modifying existing code (e.g., rewrite it in a different way, or implement something related but different). To maximize the chance that the output is correct, please do not be overly ambitious, yet still be a bit creative. Do not include a Main() method -- think of this as an evolving project. Also, don't include testing functions - we just want functions that satisfy their formal specifications. We're most interested in getting examples of loop invariants."
+  }
+]
