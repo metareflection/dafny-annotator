@@ -4,3 +4,4 @@ openai
 torch
 vllm
 networkx
+graphviz

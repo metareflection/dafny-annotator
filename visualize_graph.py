@@ -2,12 +2,25 @@
 """Visualize the Edit Graph."""
 
 import argparse
+import os
 from collections import deque
 
 import networkx as nx
 from graphviz import Digraph
 
 from edit_graph import EditGraph
+
+
+def _interpolate_color(c1: tuple, c2: tuple, t: float) -> tuple:
+    return (
+        int(c1[0] + (c2[0] - c1[0]) * t),
+        int(c1[1] + (c2[1] - c1[1]) * t),
+        int(c1[2] + (c2[2] - c1[2]) * t)
+    )
+
+
+def _rgb_to_hex(rgb: tuple) -> str:
+    return '#%02x%02x%02x' % rgb
 
 
 def visualize_graph(graph: EditGraph, output_path: str):  # noqa
@@ -27,7 +40,10 @@ def visualize_graph(graph: EditGraph, output_path: str):  # noqa
 
     G = nx.DiGraph()
     for node_id, node in graph.nodes.items():
-        G.add_node(node_id, data=node)
+        # Store node attributes directly
+        G.add_node(node_id, type=node.type, content=node.content,
+                   properties=node.properties)
+
     G.add_edges_from(edges)
 
     # Initialize distances
@@ -36,7 +52,7 @@ def visualize_graph(graph: EditGraph, output_path: str):  # noqa
 
     idea_nodes = [
         node_id for node_id, data in G.nodes(data=True)
-        if data['data'].type == 'idea'
+        if data.get('type') == 'idea'
     ]
     max_distance = 0
 
@@ -59,27 +75,17 @@ def visualize_graph(graph: EditGraph, output_path: str):  # noqa
     light_blue_rgb = (170, 210, 230)  # Light blue
     dark_blue_rgb = (0, 0, 160)       # Dark blue
 
-    def interpolate_color(c1: tuple, c2: tuple, t: float) -> tuple:
-        return (
-            int(c1[0] + (c2[0] - c1[0]) * t),
-            int(c1[1] + (c2[1] - c1[1]) * t),
-            int(c1[2] + (c2[2] - c1[2]) * t)
-        )
-
-    def rgb_to_hex(rgb: tuple) -> str:
-        return '#%02x%02x%02x' % rgb
-
     dot = Digraph(comment='Dafny Program Graph')
     dot.attr('node', style='filled', fontname='Helvetica')
 
     for node_id, data in G.nodes(data=True):
-        node = data['data']
+        node_type = data.get('type')
         label = node_id
-        node_attrs = {'label': label}
-        node_type = node.type
+        # Labels are mostly uuids, so quite long, so we trim them.
+        node_attrs = {'label': label[:8]}
 
         if node_type == 'idea':
-            # Idea nodes: yellow
+            # Idea nodes: yellow nodes.
             node_attrs['fillcolor'] = 'yellow'
             node_attrs['shape'] = 'ellipse'
             node_attrs['fontsize'] = '16'
@@ -88,20 +94,20 @@ def visualize_graph(graph: EditGraph, output_path: str):  # noqa
             node_attrs['fixedsize'] = 'true'
 
         elif node_type == 'program':
-            # Program nodes: gradient color based on distance
+            # Program nodes: gradient color based on distance to root.
             dist = data['distance'] if data['distance'] is not None else 0
             t = dist / max(1, max_distance)
-            color_rgb = interpolate_color(light_blue_rgb, dark_blue_rgb, t)
-            color_hex = rgb_to_hex(color_rgb)
+            color_rgb = _interpolate_color(light_blue_rgb, dark_blue_rgb, t)
+            color_hex = _rgb_to_hex(color_rgb)
             node_attrs['fillcolor'] = color_hex
             node_attrs['shape'] = 'box'
             node_attrs['fontsize'] = '16'
             # Dark text on light background, light text on dark background
-            node_attrs['fontcolor'] = rgb_to_hex(
-                interpolate_color((100, 100, 100), (255, 255, 255), t)
+            node_attrs['fontcolor'] = _rgb_to_hex(
+                _interpolate_color((100, 100, 100), (255, 255, 255), t)
             )
-            # Compute node size based on number of lines
-            content = node.content
+            # Size based on number of lines
+            content = data.get('content', '')
             num_lines = len(content.strip().split('\n'))
             base_size = 0.5
             size = base_size + num_lines**0.6 * 0.2
@@ -127,26 +133,22 @@ def visualize_graph(graph: EditGraph, output_path: str):  # noqa
         dot.edge(u, v)
 
     dot.render(output_path, format='png', cleanup=True)
-    print(f"Graph visualization saved to {output_path}.png")
 
 
 def main():  # noqa
     parser = argparse.ArgumentParser(
         description="Visualize a program edit graph.")
-    parser.add_argument('--graph', type=str, required=True,
+    parser.add_argument('graph', type=str,
                         help='Path to the graph JSON file.')
-    parser.add_argument('--output-path', type=str, required=True,
-                        help='Output path (without the extension)')
 
     args = parser.parse_args()
 
-    # Load or create the graph
     print(f"Loading graph from {args.graph}")
     graph = EditGraph.load_graph(args.graph)
+    output = os.path.splitext(args.graph)[0]
 
-    # Optionally visualize after running iterations
-    visualize_graph(graph, args.output_path)
-    print(f"Visualization saved to {args.output_path}.png")
+    visualize_graph(graph, output)
+    print(f"Visualization saved to {output}.png")
 
 
 if __name__ == '__main__':
