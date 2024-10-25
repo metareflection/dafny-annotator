@@ -1,0 +1,48 @@
+{
+  "comment": "This is a good pipeline to start constructing the graph. It will propose ideas, try to implement them, run a few iterations of editing the successful implementations, and then annotate partially verified programs.",
+  "editors": [
+    {
+      "editor_class": "IdeaProposer",
+      "parameters": {
+        "model_str": "gpt-4o-2024-08-06",
+        "temperature": 0.7,
+        "n_ideas": 100
+      }
+    },
+    {
+      "editor_class": "LLMImplementer",
+      "parameters": {
+        "model_str": "gpt-4o-2024-08-06",
+        "temperature": 0.2
+      }
+    },
+    {
+      "editor_class": "LLMEditor",
+      "parameters": {
+        "model_str": "gpt-4o-2024-08-06",
+        "temperature": 0.5
+      }
+    },
+    {
+      "editor_class": "LLMEditor",
+      "parameters": {
+        "model_str": "gpt-4o-2024-08-06",
+        "temperature": 0.3
+      }
+    },
+    {
+      "editor_class": "LLMEditor",
+      "parameters": {
+        "model_str": "gpt-4o-2024-08-06",
+        "temperature": 0.3
+      }
+    },
+    {
+      "editor_class": "OpenAILLMAnnotator",
+      "parameters": {
+        "model_str": "gpt-4o-2024-08-06",
+        "temperature": 0.2
+      }
+    }
+  ]
+}

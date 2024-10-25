@@ -205,42 +205,59 @@ class LLMEditor(Editor):
         return node.type == 'program'
 
     def edit_batch(self, nodes: list[Node]) -> list[Node]:
-        """Propose diffs to program nodes."""
+        """Propose diffs to program nodes using parallel verification."""
         new_nodes = []
+        programs = []
+        parent_nodes = []
+        new_program_contents = []
+
+        # Generate new programs from diffs
         for node in nodes:
             program_lines = node.content.strip().split('\n')
             numbered_lines = '\n'.join(
-                [f"{i+1}: {line}"
-                 for i, line in enumerate(program_lines)])
+                [f"{i+1}: {line}" for i, line in enumerate(program_lines)]
+            )
             prompt = replace_in_prompt(self._prompt,
                                        '$PROGRAM', numbered_lines)
-            prompt = replace_in_prompt(prompt, '$LINE_NUMBER', '1')
             response = self._client.chat.completions.create(
                 model=self._model_str,
                 messages=prompt,
                 temperature=self._temperature,
-                max_tokens=1024,
             )
             output = response.choices[0].message.content
-            new_program_str = self.apply_diff(node.content, output)
+            new_program_str = self._apply_diff(node.content, output)
             if not new_program_str:
                 continue
             new_program = DafnyProgram(new_program_str)
-            outcome = new_program.verify()
+            programs.append(new_program)
+            parent_nodes.append(node)
+            new_program_contents.append(new_program_str)
+
+        if not programs:
+            return new_nodes  # No valid programs generated
+
+        # Verify programs in parallel
+        outcomes = parallel_verify_batch(programs, timeout=10)
+
+        # Process verification outcomes
+        for program_str, outcome, parent_node in zip(new_program_contents,
+                                                     outcomes,
+                                                     parent_nodes):
             if outcome != VerificationOutcome.FAIL:
                 new_node = Node(
                     id=str(uuid.uuid4()),
                     type='program',
-                    content=new_program_str,
-                    parents=[node.id],
+                    content=program_str,
+                    parents=[parent_node.id],
                     properties={'verification_outcome': outcome.name}
                 )
                 new_nodes.append(new_node)
+                print(f"Successfully edited program from {parent_node.id}.")
             else:
-                print("New program did not verify with Dafny.")
+                print(f"Program from node {parent_node.id} did not verify.")
         return new_nodes
 
-    def apply_diff(self, original_program: str, diff_text: str) -> str:
+    def _apply_diff(self, original_program: str, diff_text: str) -> str:
         """Apply the diff from the LLM to the original program."""
         start_marker = '// BEGIN DAFNY AT LINE'
         end_marker = '// END DAFNY'
@@ -252,15 +269,19 @@ class LLMEditor(Editor):
             line_info = diff_text[start_idx:start_idx + len(start_marker) + 10]
             N = int(line_info.split(start_marker)[1].strip())
         except ValueError:
-            N = 0
-        modified_lines = (diff_text[start_idx + len(start_marker):end_idx]
-                          .strip().split('\n'))
+            N = None
+        new_lines = (diff_text[start_idx:end_idx]
+                     .strip().split('\n')[1:])  # Skip initial comment.
         original_lines = original_program.strip().split('\n')
-        if N > len(original_lines):
+        if N is None or N > len(original_lines):
             N = len(original_lines)
-        new_program_lines = (original_lines[:N-1] + modified_lines +
-                             original_lines[N:])
-        return '\n'.join(new_program_lines)
+        new_program_lines = original_lines[:N-1] + new_lines
+        return LLMEditor._close_braces('\n'.join(new_program_lines))
+
+    @staticmethod
+    def _close_braces(program: str) -> str:
+        brace_count = max(0, program.count('{') - program.count('}'))
+        return program + '\n}' * brace_count
 
 
 class OpenAILLMAnnotator(Editor):
@@ -289,8 +310,13 @@ class OpenAILLMAnnotator(Editor):
                 node.properties.get('verification_outcome') == 'GOAL_UNPROVEN')
 
     def edit_batch(self, nodes: list[Node]) -> list[Node]:
-        """Annotate programs to try to make them verify."""
+        """Add annotations to programs to try to make them verify."""
         new_nodes = []
+        programs = []
+        parent_nodes = []
+        new_program_contents = []
+
+        # Generate modified programs from annotations
         for node in nodes:
             prompt = replace_in_prompt(self._prompt, '$PROGRAM', node.content)
             response = self._client.chat.completions.create(
@@ -304,16 +330,31 @@ class OpenAILLMAnnotator(Editor):
             if not program_str:
                 continue
             new_program = DafnyProgram(program_str)
-            outcome = new_program.verify()
+            programs.append(new_program)
+            parent_nodes.append(node)
+            new_program_contents.append(program_str)
+
+        if not programs:
+            return new_nodes  # No valid programs generated
+
+        # Verify programs in parallel
+        outcomes = parallel_verify_batch(programs, timeout=60)
+
+        # Process verification outcomes
+        for program_str, outcome, parent_node in zip(new_program_contents,
+                                                     outcomes,
+                                                     parent_nodes):
             if outcome != VerificationOutcome.FAIL:
                 print("Dafny feedback after annotations:", str(outcome))
-                new_nodes.append(Node(
+                new_node = Node(
                     id=str(uuid.uuid4()),
                     type='program',
                     content=program_str,
-                    parents=[node.id],
+                    parents=[parent_node.id],
                     properties={'verification_outcome': outcome.name}
-                ))
+                )
+                new_nodes.append(new_node)
+                print(f"Successfully verified program from node {parent_node.id}.")
             else:
                 print("Program fails after attempt to annotations.")
         return new_nodes
