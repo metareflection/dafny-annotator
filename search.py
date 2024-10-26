@@ -17,10 +17,9 @@ from vllm import LLM, SamplingParams
 import torch
 from tqdm import tqdm
 
-from program import DafnyProgram, VerificationOutcome
+from program import DafnyProgram, VerificationOutcome, parallel_verify_batch
 from completion import END, make_prompt
 from annotator import load_benchmarks
-from parallel_verification import parallel_verify_batch
 
 
 class SearchNode:
@@ -244,10 +243,7 @@ class GreedySearch(SearchAlgorithm):
         Returns:
             SearchNode: The next search node.
         """
-        successors = []
-
-        for p in proposals:
-            successors.extend(state.enumerate_successors_with_annotation(p))
+        successors = state.enumerate_successors_with_annotations(proposals)
 
         if len(successors) > 100:
             successors = successors[:100]
@@ -256,6 +252,8 @@ class GreedySearch(SearchAlgorithm):
 
         # Search for a successful successor first.
         for s, outcome in zip(successors, outcomes):
+            s.verification_outcome = outcome
+
             if outcome == VerificationOutcome.SUCCESS:
                 return s
 
@@ -278,7 +276,7 @@ class GreedySearch(SearchAlgorithm):
             (bool, Optional[DafnyProgram]): A tuple indicating if the search is done,
                 and the verified program if it is.
         """
-        outcome = state.verification_outcome()
+        outcome = state.verification_outcome
         if outcome == VerificationOutcome.SUCCESS:
             return True, state.program()
         return False, None
@@ -342,22 +340,22 @@ def select_programs_to_verify(
 
 
 
-def batch_greedy_search(programs: List[DafnyProgram],
+def batch_greedy_search(programs: list[DafnyProgram],
                         proposer: Proposer,
                         max_iterations: int = 5,
                         save_results_path: Optional[str] = None
-                        ) -> List[Optional[DafnyProgram]]:
+                        ) -> list[Optional[DafnyProgram]]:
     """
     Perform batch greedy search to annotate programs for verification.
 
     Args:
-        programs (List[DafnyProgram]): List of programs to search.
+        programs (list[DafnyProgram]): List of programs to search.
         proposer (Proposer): The proposer to generate annotation proposals.
         max_iterations (int): Maximum number of iterations to perform.
         save_results_path (Optional[str]): Path to save results as JSON.
 
     Returns:
-        List[Optional[DafnyProgram]]: List of verified programs (None if not verified).
+        list[Optional[DafnyProgram]]: List of verified programs (None if not verified).
     """
     nodes = [SearchNode(p) for p in programs]
     result = [None] * len(nodes)
@@ -430,7 +428,7 @@ def main():
                         help='Maximum number of iterations for the search.')
     parser.add_argument('--model', type=str, required=True,
                         help='Name of the LLM model to use.')
-    parser.add_argument('--results-path', type=str, default=None,
+    parser.add_argument('--output', type=str, default=None,
                         help='Path to save results as a JSON file.')
     parser.add_argument('--cache-path', type=str,
                         default='DafnyBench/.outcome_cache.json',
@@ -455,7 +453,7 @@ def main():
         benchmarks,
         proposer,
         args.max_iterations,
-        args.results_path)
+        args.output)
 
     for p, r in zip(benchmarks, results):
         print('####', p.name)

@@ -7,7 +7,7 @@ import subprocess
 
 def run(args: list[str]):
     """Run the given command and check that it succeeds."""
-    subprocess.run(args, shell=True, check=True)
+    subprocess.run(args, check=True)
 
 
 def print_done(result_path: str):
