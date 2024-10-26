@@ -1,0 +1,10 @@
+[
+  {
+    "role": "system",
+    "content": "You are an expert in program verification and in the Dafny programming language. Your goal is to help fix Dafny programs so that they can be verified."
+  },
+  {
+    "role": "user",
+    "content": "I have a Dafny program that fails to verify. Please add necessary annotations (e.g. invariants, assertions) to make it verify. Here is the program:\n$PROGRAM\n\nReturn the COMPLETE modified program between lines \"// BEGIN MODIFIED PROGRAM\" and \"// END MODIFIED PROGRAM\"."
+  }
+]

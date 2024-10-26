@@ -127,12 +127,6 @@ def make_direct_examples(programs_path: str, output: str, skip: int = 0, max_len
     print('Extracted', len(finetuning_examples), 'training examples, saved to', output_path)
 
 
-def merge_model(args):
-    model = AutoModelForCausalLM.from_pretrained('./llama3-8b', device_map="auto").eval()
-    tokenizer = AutoTokenizer.from_pretrained('./llama3-8b', device_map="auto").eval()
-
-    _ = model.load_adapter("./llama3-8b/adapter_0.pt", adapter_name="ft")
-
 peft_config = LoraConfig(
     r=16,
     lora_alpha=32,
@@ -145,10 +139,9 @@ peft_config = LoraConfig(
 def finetune(args):
     dataset = []
 
-    for t in args.training_set:
-        with open(t) as d_in:
+    for file_path in args.training_data:
+        with open(file_path) as d_in:
             dataset.extend(json.load(d_in))
-
     print('Training set size:', len(dataset))
 
     for r in dataset:
@@ -163,7 +156,7 @@ def finetune(args):
 
     dataset = Dataset.from_list(dataset)
 
-    response_template = "\nAction:" # completion.RESPONSE_PREFIX
+    response_template = "\nAction:"  # completion.RESPONSE_PREFIX
 
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     tokenizer.pad_token = tokenizer.eos_token
@@ -171,13 +164,12 @@ def finetune(args):
     collator = DataCollatorForCompletionOnlyLM(
             response_template=tokenizer.encode(response_template)[2:],
             tokenizer=tokenizer)
-    suffix = '-r' if args.with_rationales else ''
     output_dir = args.output
 
     sft_config = SFTConfig(
             dataset_text_field="text",
             max_seq_length=1024,
-            output_dir=output_dir,
+            output_dir=output_dir + '-peft',
             num_train_epochs=3,
             )
 
@@ -197,11 +189,10 @@ def finetune(args):
             )
 
     trainer.train()
-    trainer.model.save_pretrained(output_dir + '-spt')
-    merged_dir = output_dir + '-merged'
+    trainer.model.save_pretrained(output_dir + '-peft')
     merged_model = trainer.model.merge_and_unload()
-    merged_model.save_pretrained(merged_dir)
-    tokenizer.save_pretrained(merged_dir)
+    merged_model.save_pretrained(output_dir)
+    tokenizer.save_pretrained(output_dir)
 
 
 def merge(input_files, output_file):
@@ -227,7 +218,6 @@ if __name__ == '__main__':
     parser.add_argument('--nontrivial', action='store_true', help='Filter and save non-trivial benchmarks')
     parser.add_argument('--skip', type=int, default=200,
                         help='How many programs to skip (e.g. avoid test set)')
-    parser.add_argument('--merge', action='store_true', help='Merge LoRA adapter with original model')
     parser.add_argument('--output', type=str, help='Output path')
     parser.add_argument('--programs', type=str,
                         help='Path to root directory containing Dafny programs to use for training.',
@@ -245,8 +235,6 @@ if __name__ == '__main__':
         make_direct_examples(args.programs, args.output, args.skip)
     elif args.nontrivial:
         print_nontrivial(args)
-    elif args.merge:
-        merge_model(args)
     elif args.finetune:
         finetune(args)
     elif args.merge_data:

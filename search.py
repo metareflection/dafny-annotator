@@ -1,7 +1,16 @@
 #!/usr/bin/env python3
+"""
+LLM-guided search to annotate Dafny programs.
+
+Uses a proposer (e.g., an LLM) to generate candidate annotations, and a
+simple search algorithm to verify the program by adding these annotations.
+
+This is the entry-point for the main experiments on DafnyBench.
+"""
 
 import os
 import json
+import argparse
 from typing import Any, Optional
 
 from vllm import LLM, SamplingParams
@@ -11,43 +20,97 @@ from tqdm import tqdm
 from program import DafnyProgram, VerificationOutcome
 from completion import END, make_prompt
 from annotator import load_benchmarks
+from parallel_verification import parallel_verify_batch
 
 
 class SearchNode:
-    def __init__(self, program: DafnyProgram, parent_node=None, parent_action=None):
+    """
+    Represents a node in the search tree for program annotations.
+
+    Attributes:
+        _program (DafnyProgram): The Dafny program at this node.
+        _parent_node (Optional[SearchNode]): Parent node in the search tree.
+        _parent_action (Optional[Any]): Action taken in the parent to get here.
+        verification_outcome (Optional[VerificationOutcome]): Feedback from Dafny.
+    """
+
+    def __init__(self, program: DafnyProgram, parent_node=None,
+                 parent_action=None):
+        # noqa
         self._program = program
         self._parent_node = parent_node
         self._parent_action = parent_action
-
-    def verification_outcome(self) -> VerificationOutcome:
-        return self._program.verify()
+        self.verification_outcome = None  # Initialize as None
 
     def program(self) -> DafnyProgram:
+        """
+        Get the Dafny program at this node.
+
+        Returns:
+            DafnyProgram: The Dafny program.
+        """
         return self._program
 
-    def enumerate_successors_with_annotation(self, annotation: str) -> list['SearchNode']:
+    def enumerate_successors_with_annotations(
+            self,
+            annotations: list[str]
+    ) -> list['SearchNode']:
+        """
+        Generate successor nodes by inserting the given annotations at valid positions.
+
+        Args:
+            annotations (list[str]): The annotations to insert.
+
+        Returns:
+            list[SearchNode]: A list of successor nodes.
+        """
         successors = []
 
         if None in (self._program.first_line(), self._program.last_line()):
             return []
 
-        for i in range(self._program.first_line(), self._program.last_line()):
-            l = self._program.lines[i]
-            # Ignore invariants added outside of loops
-            if 'invariant' in annotation and ('for' not in l and 'while' not in l and 'invariant' not in l):
-                continue
-            new_program = self._program.insert(i, annotation)
-            successors.append(SearchNode(new_program, self, (i, annotation)))
+        for annotation in annotations:
+            for i in range(self._program.first_line(), self._program.last_line()):
+                line = self._program.lines[i]
+                # Ignore invariants added outside of loops
+                if 'invariant' in annotation and \
+                   ('for' not in line and
+                    'while' not in line and
+                    'invariant' not in line):  # noqa
+                    continue
+                new_program = self._program.insert(i, annotation)
+                successor = SearchNode(new_program, self, (i, annotation))
+                successors.append(successor)
         return successors
 
 
 class Proposer:
+    """Base class for proposers that generate candidate annotations."""
+
     def propose(self, nodes: list[SearchNode]) -> list[list[str]]:
-        'Makes proposals for a batch of search nodes.'
+        """
+        Make annotation proposals for a batch of search nodes.
+
+        Args:
+            nodes (list[SearchNode]): Batch of search nodes to annotate.
+
+        Returns:
+            list[list[str]]: One list of proposed annotations for each node.
+        """
         raise NotImplementedError
 
 
 class VLLMProposer(Proposer):
+    """
+    Proposer that uses a vLLM model to generate annotation proposals.
+
+    Attributes:
+        _llm (LLM): The language model.
+        _sampling_params (SamplingParams): vLLM sampling parameters.
+        _with_rationale (bool): Whether LLM predictions will include a
+                                rationale first, before the annotation.
+    """
+
     def __init__(
             self,
             model_name: str,
@@ -56,6 +119,7 @@ class VLLMProposer(Proposer):
             temperature: float = 1.0,
             with_rationale: bool = False
     ):
+        # noqa
         self._llm = LLM(model=model_name,
                         tokenizer=tokenizer,
                         max_model_len=4096,
@@ -69,6 +133,15 @@ class VLLMProposer(Proposer):
         self._with_rationale = with_rationale
 
     def propose(self, nodes: list[SearchNode]) -> list[list[str]]:
+        """
+        Make proposals for a batch of search nodes.
+
+        Args:
+            nodes (list[SearchNode]): The search nodes to propose annotations for.
+
+        Returns:
+            list[list[str]]: A list of lists of proposed annotations for each node.
+        """
         prompts = [make_prompt(str(node.program()), with_rationale=self._with_rationale)
                    for node in nodes]
 
@@ -81,10 +154,14 @@ class VLLMProposer(Proposer):
 
         for r in responses:
             raw_proposals = [o.text for o in r.outputs]
-            lines = [l.strip() for p in raw_proposals for l in p.split('\n')]
-            lines = [l for l in lines if l and l != END]
+            lines = [line.strip()
+                     for p in raw_proposals
+                     for line in p.split('\n')]
+            lines = [line for line in lines if line and line != END]
 
             # Rewrite rationales as comments.
+            # NOTE: should refactor this to something like a
+            # prompt_utils module.
             for i in range(len(lines)):
                 if lines[i].startswith('[') and ']' in lines[i]:
                     comment, annotation = lines[i][1:].split(']', 1)
@@ -95,25 +172,78 @@ class VLLMProposer(Proposer):
 
 
 class SearchAlgorithm:
-    def initial_state(self, program: DafnyProgram) -> Any:
-        'Returns some initial state for searching for a verification of the program.'
+    """Abstract base class for batch search algorithms to annotate methods."""
+
+    def initial_state(self, programs: list[DafnyProgram]) -> Any:
+        """
+        Get an initial search state for annotating the given program.
+
+        Args:
+            program (DafnyProgram): The program to annotate.
+
+        Returns:
+            Any: The initial state.
+        """
         raise NotImplementedError
 
     def step(self, state: Any, proposals: list[str]) -> Any:
-        'Returns the next state in the search.'
+        """
+        Generate successor states given a list of proposals for this node.
+
+        Args:
+            state (Any): Current state.
+            proposals (list[str]): Proposed annotations.
+
+        Returns:
+            list[SearchNode]: Successor states.
+        """
         raise NotImplementedError
 
     def is_done(self, state: Any) -> (bool, Optional[DafnyProgram]):
-        'Returns whether the search is done, and if so, the verified program that was found.'
+        """
+        Return whether the search is done, and if so, the verified program.
+
+        Args:
+            state (Any): The current state.
+
+        Returns:
+            (bool, Optional[DafnyProgram]): A pair indicating if the search is
+                                            done, and the verified program.
+        """
         raise NotImplementedError
 
 
 class GreedySearch(SearchAlgorithm):
+    """
+    Greedy search algorithm that selects the first successful annotation.
+
+    In this search algorithm, the state is a single program node.
+    """
+
     def initial_state(self, program: DafnyProgram) -> SearchNode:
+        """
+        Initialize the search state with the given program.
+
+        Args:
+            program (DafnyProgram): The program to start searching from.
+
+        Returns:
+            SearchNode: The initial search node.
+        """
         # The state in greedy search is just a single program.
         return SearchNode(program)
 
     def step(self, state: SearchNode, proposals: list[str]) -> SearchNode:
+        """
+        Return the next state in the search.
+
+        Args:
+            state (SearchNode): The current search node.
+            proposals (list[str]): The proposed annotations.
+
+        Returns:
+            SearchNode: The next search node.
+        """
         successors = []
 
         for p in proposals:
@@ -122,108 +252,222 @@ class GreedySearch(SearchAlgorithm):
         if len(successors) > 100:
             successors = successors[:100]
 
-        for s in successors:
-            o = s.verification_outcome()
-            if o != VerificationOutcome.FAIL:
+        outcomes = parallel_verify_batch([s.program() for s in successors], timeout=10)
+
+        # Search for a successful successor first.
+        for s, outcome in zip(successors, outcomes):
+            if outcome == VerificationOutcome.SUCCESS:
                 return s
 
-        # If we couldn't make progress, return the original program.
+        #  If not, return the first non-failure.
+        for s, outcome in zip(successors, outcomes):
+            if outcome != VerificationOutcome.FAIL:
+                return s
+
+        # If we couldn't make progress at all, return the original state.
         return state
 
     def is_done(self, state: SearchNode) -> (bool, Optional[DafnyProgram]):
+        """
+        Check if the search is done.
+
+        Args:
+            state (SearchNode): The current search node.
+
+        Returns:
+            (bool, Optional[DafnyProgram]): A tuple indicating if the search is done,
+                and the verified program if it is.
+        """
         outcome = state.verification_outcome()
         if outcome == VerificationOutcome.SUCCESS:
             return True, state.program()
         return False, None
 
 
-def batch_greedy_search(programs: list[DafnyProgram],
-                        proposer: Proposer,
-                        max_iterations: int = 5,
-                        ) -> list[DafnyProgram]:
-    nodes = [SearchNode(p) for p in programs]
-    result = [None] * len(nodes)
-    is_done = [False] * len(nodes)
+def select_programs_to_verify(
+        programs: list[DafnyProgram],
+        num_programs: int,
+        cache_path: str,
+        max_program_length: int = 2048
+) -> list[DafnyProgram]:
+    """
+    Select programs from the benchmark that do not already verify.
 
-    method = GreedySearch()
+    This will first take all the first `num_programs` from the benchmark
+    (the ordering is consistent across runs, so this is deterministic),
+    then filter out programs that Dafny already verifies without annotations.
 
-    for it in range(max_iterations):
-        print(f'Iteration {it}')
+    Since this is called every time an experiment start, and calling Dafny
+    on all the benchmark programs is expensive, we cache Dafny's feedback
+    to disk.
 
-        unfinished_indices = [i for i, d in enumerate(is_done) if not d]
+    Args:
+        programs (list[DafnyProgram]): list of Dafny programs.
+        num_programs (int): Number of programs to select.
+        cache_path (str): Path to the verification outcome cache.
+        max_program_length (int): Limit to program size (in characters).
 
-        if not unfinished_indices:
-            break
-
-        unfinished_nodes = [nodes[i] for i in unfinished_indices]
-        proposals = proposer.propose(unfinished_nodes)
-        progress = 0
-
-        print('Verifying...')
-        for i, node_idx in tqdm(list(enumerate(unfinished_indices))):
-            new_node = method.step(nodes[node_idx], proposals[i])
-
-            if new_node is not nodes[node_idx]:
-                progress += 1
-
-            nodes[node_idx] = new_node
-            is_done[node_idx], p = method.is_done(nodes[node_idx])
-            if is_done[node_idx]:
-                print(p.name, 'verified!')
-                print(p)
-                result[node_idx] = p
-        print('Made progress in', progress, 'programs.')
-
-    return result
-
-
-if __name__ == '__main__':
-    from cmdline import args
-
-    N = 50
-    programs = load_benchmarks('DafnyBench/programs')
-    programs = [p.strip_annotations() for p in programs]
-
-    proposer = VLLMProposer(model_name=args.model,
-                            with_rationale=False)
-
-    # Get N programs that are not already verified.
+    Returns:
+        list[DafnyProgram]: A list of programs to verify.
+    """
     print('Selecting programs to verify...')
-    if os.path.exists('DafnyBench/.outcome_cache.json'):
-        with open('DafnyBench/.outcome_cache.json') as c_in:
+    if os.path.exists(cache_path):
+        with open(cache_path) as c_in:
             outcome_cache = json.load(c_in)
     else:
         outcome_cache = {}
 
     benchmarks = []
 
-    for p in tqdm(programs):
-        if len(str(p)) > 2048:
+    for p in tqdm(programs[:num_programs]):
+        if len(str(p)) > max_program_length:
             continue
         if p.name in outcome_cache:
+            # NOTE: we assume the benchmark is a valid program.
+            # (i.e. Dafny would not return VerificationOutcome.FAIL).
             outcome = (VerificationOutcome.SUCCESS
-                       if outcome_cache[p.name] == 'VerificationOutcome.SUCCESS'
-                       else  VerificationOutcome.GOAL_UNPROVEN)
+                       if outcome_cache[p.name] ==
+                       'VerificationOutcome.SUCCESS'
+                       else VerificationOutcome.GOAL_UNPROVEN)
         else:
             outcome = p.verify()
             outcome_cache[p.name] = str(outcome)
-            with open('DafnyBench/.outcome_cache.json', 'w') as c_out:
+            with open(cache_path, 'w') as c_out:
                 json.dump(outcome_cache, c_out)
 
         if outcome != VerificationOutcome.SUCCESS:
             benchmarks.append(p)
-            if len(benchmarks) == N:
-                break
 
-    results = batch_greedy_search(benchmarks, proposer, 7)
+    return benchmarks
 
-    print('Success rate:', sum(r is not None for r in results) / len(results))
+
+
+def batch_greedy_search(programs: List[DafnyProgram],
+                        proposer: Proposer,
+                        max_iterations: int = 5,
+                        save_results_path: Optional[str] = None
+                        ) -> List[Optional[DafnyProgram]]:
+    """
+    Perform batch greedy search to annotate programs for verification.
+
+    Args:
+        programs (List[DafnyProgram]): List of programs to search.
+        proposer (Proposer): The proposer to generate annotation proposals.
+        max_iterations (int): Maximum number of iterations to perform.
+        save_results_path (Optional[str]): Path to save results as JSON.
+
+    Returns:
+        List[Optional[DafnyProgram]]: List of verified programs (None if not verified).
+    """
+    nodes = [SearchNode(p) for p in programs]
+    result = [None] * len(nodes)
+    is_done = [False] * len(nodes)
+
+    method = GreedySearch()
+
+    # Initialize the state for each program
+    states = nodes
+
+    # For saving results
+    all_iterations = []
+
+    for it in range(max_iterations):
+        print(f'Iteration {it+1}/{max_iterations}')
+
+        unfinished_indices = [i for i, d in enumerate(is_done) if not d]
+
+        if not unfinished_indices:
+            break
+
+        unfinished_nodes = [states[i] for i in unfinished_indices]
+        # Batch proposals.
+        proposals = proposer.propose(unfinished_nodes)
+        progress = 0
+
+        # Do step in each unfinished program.
+        for idx, node_idx in enumerate(unfinished_indices):
+            new_state = method.step(states[node_idx], proposals[idx])
+
+            if new_state is not states[node_idx]:
+                progress += 1
+
+            states[node_idx] = new_state
+            is_done[node_idx], p = method.is_done(states[node_idx])
+            if is_done[node_idx]:
+                print(p.name, 'verified!')
+                print(p)
+                result[node_idx] = p
+
+        # Save the state after this iteration
+        iteration_data = {}
+        for i, state in enumerate(states):
+            program_id = programs[i].name
+            iteration_data[program_id] = {
+                'state': str(state.program()),
+                'success': is_done[i],
+            }
+        all_iterations.append(iteration_data)
+
+        if save_results_path:
+            with open(save_results_path, 'w') as f:
+                json.dump(all_iterations, f, indent=4)
+
+        print('Made progress in', progress, 'programs.')
+
+    return result
+
+
+def main():
+    # noqa
+    parser = argparse.ArgumentParser(
+        description='Evaluate dafny-annotator.')  # noqa
+    parser.add_argument('--num-programs', type=int, default=50,
+                        help='Number of programs to select for verification.')
+    parser.add_argument('--benchmark-path', type=str,
+                        default='DafnyBench/programs',
+                        help='Path to the benchmark programs.')
+    parser.add_argument('--max-iterations', type=int, default=5,
+                        help='Maximum number of iterations for the search.')
+    parser.add_argument('--model', type=str, required=True,
+                        help='Name of the LLM model to use.')
+    parser.add_argument('--results-path', type=str, default=None,
+                        help='Path to save results as a JSON file.')
+    parser.add_argument('--cache-path', type=str,
+                        default='DafnyBench/.outcome_cache.json',
+                        help='Path to the verification outcome cache.')
+    parser.add_argument('--max-program-length', type=int, default=2048,
+                        help='Filter out benchmark programs larger than this.')
+    args = parser.parse_args()
+
+    programs = load_benchmarks(args.benchmark_path)
+    programs = [p.strip_annotations() for p in programs]
+
+    proposer = VLLMProposer(model_name=args.model, with_rationale=False)
+
+    # Select programs to verify
+    benchmarks = select_programs_to_verify(
+        programs,
+        num_programs=args.num_programs,
+        cache_path=args.cache_path,
+        max_program_length=args.max_program_length)
+
+    results = batch_greedy_search(
+        benchmarks,
+        proposer,
+        args.max_iterations,
+        args.results_path)
 
     for p, r in zip(benchmarks, results):
         print('####', p.name)
-
         if r is None:
             print('Failed to verify')
         else:
             print('Verified program:')
             print(str(r))
+
+    success_count = sum(r is not None for r in results)
+    print('Success rate:', success_count / len(results))
+
+
+if __name__ == '__main__':
+    main()

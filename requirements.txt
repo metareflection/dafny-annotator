@@ -3,3 +3,5 @@ transformers
 openai
 torch
 vllm
+networkx
+graphviz
