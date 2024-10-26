@@ -63,7 +63,7 @@ def run_dafnybench_finetuning_experiment(
         run(['python', 'training.py',
              '--finetune',
              '--model', base_model,
-             '--training-data', training_set_path,
+             '--training-set', training_set_path,
              '--output', model_path,
              ])
 

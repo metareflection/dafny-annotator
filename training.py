@@ -139,7 +139,7 @@ peft_config = LoraConfig(
 def finetune(args):
     dataset = []
 
-    for file_path in args.training_data:
+    for file_path in args.training_set:
         with open(file_path) as d_in:
             dataset.extend(json.load(d_in))
     print('Training set size:', len(dataset))
