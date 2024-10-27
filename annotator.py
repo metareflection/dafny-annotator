@@ -3,6 +3,7 @@
 from tqdm import tqdm
 import os
 import json
+import random
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from synchromesh import HuggingFaceModel, predict_constrained
@@ -55,7 +56,10 @@ def load_lm_for_verification(model_name: str) -> HuggingFaceModel:
     return HuggingFaceModel(lm, tokenizer=tokenizer, prompt_template='', temperature=1)
 
 
-def load_benchmarks(path: str) -> list[DafnyProgram]:
+def load_benchmarks(
+    path: str,
+    seed: str = 'dafny-annotator'
+) -> list[DafnyProgram]:
     benchmarks = []
 
     for root, dirs, files in os.walk(path):
@@ -67,6 +71,8 @@ def load_benchmarks(path: str) -> list[DafnyProgram]:
                     program = DafnyProgram(program_string, file)
                     benchmarks.append(program)
 
+    random.seed(seed)
+    random.shuffle(benchmarks)
     return benchmarks
 
 
