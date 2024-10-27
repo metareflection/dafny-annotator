@@ -246,6 +246,6 @@ def parallel_verify_batch(
                 result = future.result()
                 results[idx] = result
             except Exception:
-                results[idx] = VerificationOutcome.ERROR
+                results[idx] = VerificationOutcome.FAIL
 
     return results

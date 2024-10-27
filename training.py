@@ -2,6 +2,8 @@
 
 import argparse
 import json
+import os
+from pathlib import Path
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from tqdm import tqdm
@@ -102,7 +104,14 @@ def make_rationalization_examples(args):
         json.dump(finetuning_examples, f, indent=2)
 
 
-def make_direct_examples(programs_path: str, output: str, skip: int = 0, max_length: int = 2048):
+def make_direct_examples(
+        programs_path: str,
+        output_path: str,
+        skip: int = 0,
+        max_length: int = 2048,
+        unique: bool = False):
+    seen_annotations = set()
+
     programs = load_benchmarks(programs_path or 'DafnyBench/programs')[skip:]
     examples = []
 
@@ -112,14 +121,17 @@ def make_direct_examples(programs_path: str, output: str, skip: int = 0, max_len
     finetuning_examples = []
 
     for p, a in examples:
-        # For now skip very long programs to avoid OOMs.
+        a = a.strip()
+        if unique and a in seen_annotations:
+            continue
+        seen_annotations.add(a)
         finetuning_examples.append({
             'program': trim_program(str(p), max_length),
             'output': a,
             'rationale': None,
         })
 
-    output_path = output or 'direct_finetuning_examples.json'
+    output_path = output_path or 'direct_finetuning_examples.json'
 
     with open(output_path, 'w') as f:
         json.dump(finetuning_examples, f, indent=2)
@@ -127,9 +139,54 @@ def make_direct_examples(programs_path: str, output: str, skip: int = 0, max_len
     print('Extracted', len(finetuning_examples), 'training examples, saved to', output_path)
 
 
+def extract_programs_from_graph(json_path: str,
+                                output_dir: str,
+                                include_unproven: bool = True):
+    out_path = Path(output_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
+    processed_count = 0
+
+    json_file_name = os.path.splitext(os.path.basename(json_path))[0]
+
+    try:
+        with open(json_path, 'r') as f:
+            data = json.load(f)
+
+        if not isinstance(data, dict) or not data.get('nodes'):
+            print(f"Skipping {json_path} (not a serialized edit graph)")
+            return
+
+        data = data['nodes']
+
+        for index, obj in enumerate(data):
+            if obj['type'] == 'program':
+                output_file = f"{json_file_name}-{obj['id']}.dfy"
+                output_path = os.path.join(output_dir, output_file)
+
+                with open(output_path, 'w') as f:
+                    f.write(obj['content'])
+
+                processed_count += 1
+
+    except Exception as e:
+        print(f"Error processing {json_path}: {str(e)}")
+
+    print(processed_count, 'Dafny files written to', output_dir)
+
+
+def extract_examples_from_graph(graph_path: str, output: str):
+    output_dir = os.path.dirname(output)
+    print('Output:', output)
+    extract_path = output_dir + '-programs'
+    os.makedirs(extract_path, exist_ok=True)
+    extract_programs_from_graph(graph_path, extract_path)
+    make_direct_examples(extract_path, output, unique=True)
+
+
 peft_config = LoraConfig(
-    r=16,
-    lora_alpha=32,
+    r=128,
+    use_rslora=True,
+    lora_alpha=128,
     lora_dropout=0.05,
     bias="none",
     task_type="CAUSAL_LM",
@@ -215,9 +272,11 @@ if __name__ == '__main__':
     parser.add_argument('--merge-data', action='store_true', help='Merge training sets')
     parser.add_argument('--rationalize', action='store_true', help='Generate rationalization examples')
     parser.add_argument('--extract-direct', action='store_true', help='Generate direct prediction examples')
+    parser.add_argument('--extract-direct-from-graph', action='store_true', help='Generate direct prediction examples from a synthetic graph')
     parser.add_argument('--nontrivial', action='store_true', help='Filter and save non-trivial benchmarks')
     parser.add_argument('--skip', type=int, default=200,
                         help='How many programs to skip (e.g. avoid test set)')
+    parser.add_argument('--graph', type=str, help='Path to input synthetic graph')
     parser.add_argument('--output', type=str, help='Output path')
     parser.add_argument('--programs', type=str,
                         help='Path to root directory containing Dafny programs to use for training.',
@@ -233,6 +292,8 @@ if __name__ == '__main__':
         make_rationalization_examples(args)
     elif args.extract_direct:
         make_direct_examples(args.programs, args.output, args.skip)
+    elif args.extract_direct_from_graph:
+        extract_examples_from_graph(args.graph, args.output)
     elif args.nontrivial:
         print_nontrivial(args)
     elif args.finetune:
