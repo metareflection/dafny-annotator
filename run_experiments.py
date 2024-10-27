@@ -50,6 +50,16 @@ def run_dafnybench_finetuning_experiment(
     finetuning_fraction: float,
     include_graph: Optional[str] = None,
 ):
+    """Run an experiment with fine-tuning on DafnyBench + (optionally) synthetic data.
+
+    Args:
+        n_eval_programs (int): Number of programs to hold out for the test set.
+        base_model (str): Model string.
+        finetuning_fraction (float): How much of the training set to use (between 0 and 1).
+        include_graph (Optional[str]): If not None, then should be a path to a JSON
+                                       representing an edit graph, from which we'll extract
+                                       fine-tuning examples.
+    """
     DAFNYBENCH_SIZE = 1326  # TODO: get this from the dataset.
     available_training_set = DAFNYBENCH_SIZE - n_eval_programs
     used_training_set = int(finetuning_fraction * available_training_set)
@@ -121,11 +131,11 @@ def main():
     for m in BASE_MODELS:
         run_base_model_experiment(N_EVAL_PROGRAMS, m)
 
-    EVAL_FRACTIONS = [.25, .5, 1.0]
+    TRAINING_SET_FRACTIONS = [.25, .5, 1.0]
 
     for graph in [None, 'edit_graph.json']:
         for m in BASE_MODELS:
-            for f in EVAL_FRACTIONS:
+            for f in TRAINING_SET_FRACTIONS:
                 run_dafnybench_finetuning_experiment(N_EVAL_PROGRAMS, m, f, include_graph=graph)
 
 if __name__ == '__main__':
