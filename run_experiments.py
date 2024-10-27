@@ -3,16 +3,27 @@
 
 import os
 import subprocess
+from typing import Optional
 
 
-def run(args: list[str]):
+def run(args: list[str], check: bool = True):
     """Run the given command and check that it succeeds."""
-    subprocess.run(args, check=True)
+    subprocess.run(args, check=check)
 
 
 def print_done(result_path: str):
     """Print that the experiment is done."""
     print(f'✅ {result_path}')
+
+
+def kill_dafny():
+    """Kills all running Dafny processes.
+
+    execute.py seems to leave some of these processes still running
+    even after search.py finishes, and they don't let CUDA memory be
+    freed up. This is a workaround, though we might want to fix execute.py
+    """
+    run(['killall', '-9', 'dafny'], check=False)
 
 
 def run_base_model_experiment(
@@ -28,6 +39,7 @@ def run_base_model_experiment(
              '--num-programs', str(n_eval_programs),
              '--output', result_path,
              '--model', base_model])
+        kill_dafny()
 
     print_done(result_path)
 
@@ -36,6 +48,7 @@ def run_dafnybench_finetuning_experiment(
     n_eval_programs: int,
     base_model: str,
     finetuning_fraction: float,
+    include_graph: Optional[str] = None,
 ):
     DAFNYBENCH_SIZE = 1326  # TODO: get this from the dataset.
     available_training_set = DAFNYBENCH_SIZE - n_eval_programs
@@ -45,42 +58,64 @@ def run_dafnybench_finetuning_experiment(
 
     model_name = base_model.split('/')[-1]
     ft_percent = int(100 * finetuning_fraction)
+    suffix = '+graph' if include_graph else ''
+
     result_path = os.path.join(
-        f'results/finetuned-{model_name}-db{ft_percent}.json')  # noqa
+        f'results/finetuned-{model_name}-db{ft_percent}{suffix}.json')  # noqa
 
     training_set_path = f'data/finetuning_examples_{finetuning_fraction}.json'
-    model_path = f'models/finetuned_{model_name}_db{ft_percent}'
+    model_path = f'models/finetuned_{model_name}_db{ft_percent}{suffix}'
 
     if not os.path.exists(result_path):
-        # 1- Collect training set
-        run(['python', 'training.py',
-             '--extract-direct',
-             '--skip', str(n_skip),
-             '--output', training_set_path,
-             ])
+        if not os.path.exists(model_path):
+            # 1- Collect training set
+            run(['python', 'training.py',
+                 '--extract-direct',
+                 '--skip', str(n_skip),
+                 '--output', training_set_path,
+                 ])
 
-        # 2- Fine-tune
-        run(['python', 'training.py',
-             '--finetune',
-             '--model', base_model,
-             '--training-set', training_set_path,
-             '--output', model_path,
-             ])
+            training_set = [training_set_path]
 
-        # 3- Evaluate
+            # 2- (Optional) if include_graph is provided, also include
+            # examples extracted from the graph in the training set.
+            if include_graph:
+                graph_examples = os.path.splitext(include_graph)[0] + '-examples.json'
+                run(['python', 'training.py',
+                    '--extract-direct-from-graph',
+                    '--graph', include_graph,
+                    '--output', graph_examples,
+                    ])
+                training_set.append(graph_examples)
+
+            # 3- Fine-tune
+            run(['python', 'training.py',
+                 '--finetune',
+                 '--model', base_model,
+                 '--training-set', *training_set,
+                 '--output', model_path,
+                 ])
+
+        # 4- Evaluate
         run(['python', 'search.py',
              '--num-programs', str(n_eval_programs),
              '--output', result_path,
              '--model', model_path,
              ])
+        kill_dafny()
 
     print_done(result_path)
 
 
 def main():
     N_EVAL_PROGRAMS = 326
+
+    # Make huggingface tokenizers behave well with multiprocessing.
+    os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+
     BASE_MODELS = [
         'meta-llama/Meta-Llama-3.1-8B',
+        'meta-llama/CodeLlama-7b-hf',
     ]
 
     for m in BASE_MODELS:
@@ -88,12 +123,10 @@ def main():
 
     EVAL_FRACTIONS = [.25, .5, 1.0]
 
-    for m in BASE_MODELS:
-        for f in EVAL_FRACTIONS:
-            run_dafnybench_finetuning_experiment(N_EVAL_PROGRAMS, m, f)
-
-
-    # TODO: Try with merging with DafnySynth
+    for graph in [None, 'edit_graph.json']:
+        for m in BASE_MODELS:
+            for f in EVAL_FRACTIONS:
+                run_dafnybench_finetuning_experiment(N_EVAL_PROGRAMS, m, f, include_graph=graph)
 
 if __name__ == '__main__':
     main()
