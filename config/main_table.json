@@ -1,0 +1,73 @@
+[
+	{
+		"results_file": "base-Meta-Llama-3.1-8B.json",
+		"model_name": "Llama 3.1 8B",
+		"finetune_data": "-"
+	},
+	{
+		"results_file": "finetuned-Meta-Llama-3.1-8B-db25.json",
+		"model_name": "Llama 3.1 8B",
+		"finetune_data": "DB (25%)"
+	},
+	{
+		"results_file": "finetuned-Meta-Llama-3.1-8B-db50.json",
+		"model_name": "Llama 3.1 8B",
+		"finetune_data": "DB (50%)"
+	},
+	{
+		"results_file": "finetuned-Meta-Llama-3.1-8B-db100.json",
+		"model_name": "Llama 3.1 8B",
+		"finetune_data": "DB (100%)"
+	},
+	{
+		"results_file": "finetuned-Meta-Llama-3.1-8B-db25+graph.json",
+		"model_name": "Llama 3.1 8B",
+		"finetune_data": "DB (25%) + DafnySynth"
+	},
+	{
+		"results_file": "finetuned-Meta-Llama-3.1-8B-db50+graph.json",
+		"model_name": "Llama 3.1 8B",
+		"finetune_data": "DB (50%) + DafnySynth"
+	},
+	{
+		"results_file": "finetuned-Meta-Llama-3.1-8B-db100+graph.json",
+		"model_name": "Llama 3.1 8B",
+		"finetune_data": "DB (100%) + DafnySynth"
+	},
+	{
+		"results_file": "base-CodeLlama-7b-hf.json",
+		"model_name": "CodeLlama 7B",
+		"finetune_data": "-"
+	},
+	{
+		"results_file": "finetuned-CodeLlama-7b-hf-db25.json",
+		"model_name": "CodeLlama 7B",
+		"finetune_data": "DB (25%)"
+	},
+	{
+		"results_file": "finetuned-CodeLlama-7b-hf-db50.json",
+		"model_name": "CodeLlama 7B",
+		"finetune_data": "DB (50%)"
+	},
+	{
+		"results_file": "finetuned-CodeLlama-7b-hf-db100.json",
+		"model_name": "CodeLlama 7B",
+		"finetune_data": "DB (100%)"
+	},
+	{
+		"results_file": "finetuned-CodeLlama-7b-hf-db25+graph.json",
+		"model_name": "CodeLlama 7B",
+		"finetune_data": "DB (25%) + DafnySynth"
+	},
+	{
+		"results_file": "finetuned-CodeLlama-7b-hf-db50+graph.json",
+		"model_name": "CodeLlama 7B",
+		"finetune_data": "DB (50%) + DafnySynth"
+	},
+	{
+		"results_file": "finetuned-CodeLlama-7b-hf-db100+graph.json",
+		"model_name": "CodeLlama 7B",
+		"finetune_data": "DB (100%) + DafnySynth"
+	}
+]
+
