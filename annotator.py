@@ -71,6 +71,7 @@ def load_benchmarks(
                     program = DafnyProgram(program_string, file)
                     benchmarks.append(program)
 
+    benchmarks.sort(key=lambda p: p.name)
     random.seed(seed)
     random.shuffle(benchmarks)
     return benchmarks
