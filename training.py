@@ -20,7 +20,6 @@ from program import VerificationOutcome
 import completion
 
 
-OPENAI = openai.Client()
 
 
 def print_nontrivial(args):
@@ -68,6 +67,8 @@ Missing annotation: invariant |interspersed| == if i > 0 then 2 * i - 1 else 0""
             "content": f"Program: {program}\nMissing annotation: {annotation}"
         }
     ]
+
+    OPENAI = openai.Client()
 
     completion = OPENAI.chat.completions.create(
         model="gpt-4o",
