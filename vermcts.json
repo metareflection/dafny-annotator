@@ -1,0 +1,103 @@
+{
+    "nodes": [
+        {
+            "id": "root",
+            "type": "root",
+            "content": "",
+            "parents": [],
+            "statistics": {},
+            "properties": {}
+        },
+        {
+            "id": "idea-1",
+            "type": "idea",
+            "content": "In Dafny: (1) Write a function 'repeat' that takes an integer 'x' and a natural number 'n' as inputs, and returns a list of length 'n' in which every element is 'x'. (2) Then write a lemma 'repeat_correct' that checks that for any 'x' and 'n', 'repeat' returns a list of length 'n' and that every element of the list is 'x'.",
+            "parents": [
+                "root"
+            ],
+            "statistics": {},
+            "properties": {}
+        },
+        {
+            "id": "idea-2",
+            "type": "idea",
+            "content": "In Dafny, write an ADT 'Expr' for arithmetic expressions comprising constants, variables and binary addition. Then write a predicate 'optimal' that holds on an expression if it has no additions by 0. Then write an optimizer 'optimize' that removes all additions by 0. Then write a lemma 'OptimizerOptimal' that ensures 'optimal(optimize(e))' for all expressions 'e'.",
+            "parents": [
+                "root"
+            ],
+            "statistics": {},
+            "properties": {}
+        },
+        {
+            "id": "idea-3",
+            "type": "idea",
+            "content": "In Dafny: (1) Write a datatype 'light' for traffic lights with cases 'Red', 'Yellow', 'Green'. (2) Write a function 'activation' which takes two lights, source and target, and returns a list of lights, the first element being the source and the last element being the target. If the source and target are not yellow and are distinct, then the returned list has a middle element of yellow. (3) Write a helper 'adjacent_ok' that takes two lights, and checks that they are not one red and the other green. (4) Write a helper 'all_adjacent_ok' that takes a list of lights, and checks that all adjacent elements are 'adjacent_ok'. (5) Write a lemma 'check_activation(source: light, target: light)' to prove that a returned list never has adjacent elements that are distinct and red or green. The 'ensures' clause should be 'all_adjacent_ok(activation(source, target))'.  ",
+            "parents": [
+                "root"
+            ],
+            "statistics": {},
+            "properties": {}
+        },
+        {
+            "id": "idea-4",
+            "type": "idea",
+            "content": "In Dafny, (1) write an ADT for a tree of natural numbers. Call it 'Tree'. Then (2) write a predicate 'IsBST' that checks whether a given tree is a binary search tree (BST). Then (3) write a function 'insert' that inserts an element into a binary search tree while preserving the BST property. Then (4) write a predicate 'Contains' that checks whether a given tree contains a given element. Then (5) write a lemma 'InsertContains' about the insert function that ensures that the tree resulting from inserting an element contains that element (without requiring nor ensuring the BST property). Then (6) write another lemma 'InsertPreservesBST' about the insert function that checks the BST property continues to hold after insertion. This lemma should take bounds on the BST, and require that the element to be inserted is within those bounds. ",
+            "parents": [
+                "root"
+            ],
+            "statistics": {},
+            "properties": {}
+        },
+        {
+            "id": "idea-5",
+            "type": "idea",
+            "content": "In Dafny, write an ADT for arithmetic expressions (called 'Expr') comprising constants, variables and binary additions. Then write an evaluator (called 'Eval') taking an expression and an environment (a function that takes a variable name and returns a number) and returning the number resulting from evaluation. Then write an optimizer (called 'Optimize') taking an expression and returning an expression with all additions by 0 removed. Then prove that the optimizer preserves the semantics as defined by the evaluation function. Do so by proving the lemma 'OptimizePreservesSemantics(e: Expr, env: string -> int) ensures Eval(Optimize(e), env) == Eval(e, env)'.",
+            "parents": [
+                "root"
+            ],
+            "statistics": {},
+            "properties": {}
+        },
+        {
+            "id": "idea-6",
+            "type": "idea",
+            "content": "In Dafny, write a factorial function, called 'fac', and prove (in a lemma called 'FacPositive(n: nat)') that the factorial is always strictly positive.",
+            "parents": [
+                "root"
+            ],
+            "statistics": {},
+            "properties": {}
+        },
+        {
+            "id": "idea-7",
+            "type": "idea",
+            "content": "In Dafny: (1) Write a datatype for 'Food': 'Pasta' or 'Pizza'. Each Pasta or Pizza has a list of toppings. Each 'Topping' is one of: 'tomato', 'cheese', 'olive', 'broccoli', 'mushroom', 'pepper'. (2) Write a predicate 'ok' that accepts any pizza with five toppings or fewer, and any pasta with two toppings or fewer. (3) Write a lemma 'ok3_pizza' that proves that an accepted food with three or more toppings must be a pizza.",
+            "parents": [
+                "root"
+            ],
+            "statistics": {},
+            "properties": {}
+        },
+        {
+            "id": "idea-8",
+            "type": "idea",
+            "content": "In Dafny: (1) Write a function 'reverse' that takes a list as input and reverses it. (2) Then write a lemma 'reverse_permutes' that checks that for any list 'l', an element exists in 'l' if and only if it exists in the result of calling 'reverse' on 'l'. (3) Then write a lemma 'reverse_involutes' that checks that for any list 'l', calling 'reverse' twice on 'l' yields 'l'.",
+            "parents": [
+                "root"
+            ],
+            "statistics": {},
+            "properties": {}
+        },
+        {
+            "id": "idea-9",
+            "type": "idea",
+            "content": "In Dafny: (1) Write an ADT 'Day' for the days of the week: 'Sunday' to 'Saturday'. (2) Write a function 'next_biz_day' that gives the next business day. (3) Write a function'iter_biz_day(d: Day, n: nat): Day' that iterates the next business day function, for an arbitrary number n of business days. (4) Write a lemma 'iter5_biz_day_idempotent' that ensures that starting with a business day, taking the next five business days is idempotent.",
+            "parents": [
+                "root"
+            ],
+            "statistics": {},
+            "properties": {}
+        }
+        
+    ]
+}
