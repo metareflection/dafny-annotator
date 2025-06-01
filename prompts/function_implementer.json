@@ -1,0 +1,4 @@
+[
+    {"role": "system", "content": "You are an expert in program verification."},
+    {"role": "user", "content": "You are implementing a function in a Dafny program that is specified but not fully implemented. The current program is $PROGRAM. The function to implement is $FUNCTION. Please just provide the body of the function (without the outer braces), starting with a line \"// BEGIN DAFNY\", ending with a line \"// END DAFNY\"."}
+  ]

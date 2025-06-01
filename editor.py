@@ -14,6 +14,7 @@ Notable editors:
 
 import uuid
 import json
+from dataclasses import dataclass
 
 from edit_graph import Node
 from prompts import replace_in_prompt
@@ -47,7 +48,7 @@ class Editor:
         raise NotImplementedError
 
 
-class IdeaProposer(Editor):
+class IdeaProposerBase(Editor):
     """
     Proposes high-level ideas for new verified programs using an LLM.
 
@@ -58,6 +59,8 @@ class IdeaProposer(Editor):
 
     def __init__(
             self,
+            prompt_new_file: str,
+            prompt_existing_file: str,
             model_str: str,
             temperature: float = 0.5,
             n_ideas: int = 50
@@ -67,9 +70,9 @@ class IdeaProposer(Editor):
         self._client = openai.Client()
         self._n_ideas = n_ideas
         self._temperature = temperature
-        with open('prompts/idea_proposer.json', 'r') as f:
+        with open(prompt_new_file, 'r') as f:
             self._prompt_new = json.load(f)
-        with open('prompts/idea_proposer_with_existing.json', 'r') as f:
+        with open(prompt_existing_file, 'r') as f:
             self._prompt_existing = json.load(f)
 
     def name(self) -> str:
@@ -113,6 +116,13 @@ class IdeaProposer(Editor):
             parents=['root'],
         ) for i, idea in enumerate(ideas)]
 
+class IdeaProposer(IdeaProposerBase):
+    def __init__(self, model_str: str, temperature: float = 0.2, n_ideas: int = 50):
+        super().__init__('prompts/idea_proposer.json', 'prompts/idea_proposer_with_existing.json', model_str, temperature, n_ideas)
+
+class FunctionalIdeaProposer(IdeaProposerBase):
+    def __init__(self, model_str: str, temperature: float = 0.2, n_ideas: int = 50):
+        super().__init__('prompts/functional_idea_proposer.json', 'prompts/functional_proposer_with_existing.json', model_str, temperature, n_ideas)
 
 class LLMImplementer(Editor):
     """Takes idea nodes and tries to implement them in Dafny using an LLM."""
@@ -184,6 +194,160 @@ class LLMImplementer(Editor):
             return None
         return text[start_idx + len(start_marker):end_idx].strip()
 
+class BaseEditor(Editor):
+    def __init__(self, name: str, node_type: str,prompt_file: str, model_str: str, temperature: float = 0.2):
+        """Initialize an LLMSpecMaker based on an OpenAI model."""
+        self._name = name
+        self._node_type = node_type
+        self._model_str = model_str
+        self._temperature = temperature
+        self._client = openai.Client()
+        with open(prompt_file, 'r') as f:
+            self._prompt = json.load(f)
+
+    def _can_edit(self, node: Node) -> bool:
+        return True
+
+    def _replace_in_prompt(self, prompt: list[dict], node: Node) -> list[dict]:
+        return prompt
+    
+    def _full_program(self, node: Node, program_str: str) -> str:
+        return program_str
+
+    def name(self) -> str:
+        return f'BaseEditor-{self._name}-{self._model_str}'
+
+    def can_edit(self, node: Node) -> bool:
+        return node.type == self._node_type and self._can_edit(node)
+
+    def edit_batch(self, nodes: list[Node]) -> list[Node]:
+        """Implement Dafny programs."""
+        new_nodes = []
+        programs = []
+        parent_nodes = []
+
+        # Generate Dafny programs from ideas using the LLM
+        for node in nodes:
+            prompt = self._replace_in_prompt(self._prompt, node)
+            response = self._client.chat.completions.create(
+                model=self._model_str,
+                messages=prompt,
+                temperature=self._temperature,
+                max_tokens=1024,
+            )
+            output = response.choices[0].message.content
+            program_str = self._extract_dafny_program(output)
+            print('Program fragment:')
+            print(program_str)
+            if not program_str:
+                continue
+            new_program = DafnyProgram(self._full_program(node, program_str))
+            programs.append(new_program)
+            parent_nodes.append(node)
+
+        outcomes = parallel_verify_batch(programs)
+
+        for program, outcome, parent_node in zip(programs, outcomes,
+                                                 parent_nodes):
+            if outcome != VerificationOutcome.FAIL:
+                new_node = Node(
+                    id=str(uuid.uuid4()),
+                    type='program',
+                    content=str(program),
+                    parents=[parent_node.id],
+                    properties={'verification_outcome': outcome.name}
+                )
+                new_nodes.append(new_node)
+                print(f"Program inspired by {parent_node.id} verified.")
+            else:
+                print(f"Program inspired by {parent_node.id} did not verify.")
+        return new_nodes
+
+    def _extract_dafny_program(self, text: str) -> str:
+        """Extract the Dafny program between the markers."""
+        start_marker = '// BEGIN DAFNY'
+        end_marker = '// END DAFNY'
+        start_idx = text.find(start_marker)
+        end_idx = text.find(end_marker)
+        if start_idx == -1 or end_idx == -1:
+            return None
+        return text[start_idx + len(start_marker):end_idx].strip()
+
+class SpecMaker(BaseEditor):
+    def __init__(self, model_str: str, temperature: float = 0.2):
+        super().__init__('SpecMaker', 'idea', 'prompts/spec_maker.json', model_str, temperature)
+
+    def _replace_in_prompt(self, prompt: list[dict], node: Node) -> list[dict]:
+        return replace_in_prompt(prompt, '$IDEA', node.content)
+
+@dataclass     
+class Axiom:
+    signature: str
+    name: str
+
+def _substring_until_keyword(s: str, keywords: list[str] = ['function', 'lemma', 'datatype']) -> str:
+    end_indices = [s.find(kw) for kw in keywords]
+    valid_end_indices = [idx for idx in end_indices if idx != -1]
+    end = min(valid_end_indices) if valid_end_indices else len(s)
+    return s[0:end]
+
+def _extract_axiom(prefix: str, text: str) -> Axiom:
+    cur = text
+    while True:
+        i = cur.find(prefix)
+        if i == -1:
+            return None
+        s = _substring_until_keyword(cur[i+len(prefix):])
+        ir = s.find('}')
+        if ir == -1:
+            return Axiom(prefix + s, s.strip().split(' ')[0])
+        s = s[:ir]
+        cur = cur[i+len(prefix)+len(s):]
+    return None
+
+class FunctionImplementer(BaseEditor):
+    def __init__(self, model_str: str, temperature: float = 0.2):
+        super().__init__("FunctionImplementer", 'program', 'prompts/function_implementer.json', model_str, temperature)
+
+    def _can_edit(self, node: Node) -> bool:
+        return self._extract_function_signature(node.content) is not None
+
+    def _full_program(self, node: Node, program_str: str) -> str:
+        function = self._extract_function_signature(node.content)
+        print('Function signature:', function.signature)
+        r = node.content.replace(function.signature, function.signature.rstrip() + '\n{' + program_str + '\n}\n')
+        print('New program:')
+        print(r)
+        return r
+
+    def _replace_in_prompt(self, prompt: list[dict], node: Node) -> list[dict]:
+        function = self._extract_function_signature(node.content)
+        prompt = replace_in_prompt(prompt, '$PROGRAM', node.content)
+        prompt = replace_in_prompt(prompt, '$FUNCTION', function.name)
+        return prompt
+
+    def _extract_function_signature(self, text: str) -> Axiom:
+        return _extract_axiom('function ', text)
+
+class LemmaImplementer(BaseEditor):
+    def __init__(self, model_str: str, temperature: float = 0.2):
+        super().__init__('LemmaImplementer','program', 'prompts/lemma_implementer.json', model_str, temperature)
+
+    def _can_edit(self, node: Node) -> bool:
+        return self._extract_lemma_axiom(node.content) is not None
+
+    def _full_program(self, node: Node, program_str: str) -> str:
+        lemma = self._extract_lemma_axiom(node.content)
+        return node.content.replace(lemma.signature, lemma.signature.replace(' {:axiom}', '').rstrip() + '\n{\n' + program_str + '\n}\n')
+
+    def _replace_in_prompt(self, prompt: list[dict], node: Node) -> list[dict]:
+        lemma = self._extract_lemma_axiom(node.content)
+        prompt = replace_in_prompt(prompt, '$PROGRAM', node.content)
+        prompt = replace_in_prompt(prompt, '$LEMMA', lemma.name)
+        return prompt
+    
+    def _extract_lemma_axiom(self, text: str) -> Axiom:
+        return _extract_axiom('lemma {:axiom} ', text)
 
 class LLMEditor(Editor):
     """Takes a program node and proposes a diff to it using an LLM."""

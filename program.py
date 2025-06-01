@@ -186,15 +186,15 @@ class DafnyProgram:
         return examples
 
 
+def worker(q, program):
+    try:
+        result = program.verify()
+        q.put(result)
+    except Exception as e:
+        q.put(e)
+
 def verify_program_with_timeout(program: DafnyProgram, timeout: float):
     """Verify a DafnyProgram in a separate process with a timeout."""
-    def worker(q, program):
-        try:
-            result = program.verify()
-            q.put(result)
-        except Exception as e:
-            q.put(e)
-
     q = multiprocessing.Queue()
     p = multiprocessing.Process(target=worker, args=(q, program))
     p.start()
@@ -230,6 +230,8 @@ def parallel_verify_batch(
     Returns:
         Verification outcomes corresponding to the input programs (same order).
     """
+    print('Verifying batch of', len(programs), 'programs')
+    print('Programs:\n', "\n\n".join([str(p) for p in programs]))
     if num_processes is None:
         num_processes = multiprocessing.cpu_count()
 
@@ -242,10 +244,11 @@ def parallel_verify_batch(
         }
         for future in as_completed(future_to_index):
             idx = future_to_index[future]
-            try:
-                result = future.result()
-                results[idx] = result
-            except Exception:
-                results[idx] = VerificationOutcome.FAIL
+            #try:
+            result = future.result()
+            results[idx] = result
+            #except Exception:
+            #    results[idx] = VerificationOutcome.FAIL
 
+    print('Results:', results)
     return results

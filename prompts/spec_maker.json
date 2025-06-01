@@ -1,0 +1,5 @@
+[
+    {"role": "system", "content": "You are an expert in program verification."},
+    {"role": "user", "content": "You are translating an idea for a Dafny program into a specification, consisting of datatypes, function signatures (without body) and lemmas (using the {:axiom} annotation and without body). Here is the idea:\n$IDEA\n\nPlease output the specification without using an explicit module, starting with a line \"// BEGIN DAFNY\", ending with a line \"// END DAFNY\"."}
+  ]
+  
