@@ -1,3 +1,5 @@
+[![arXiv](https://img.shields.io/badge/arXiv-2402.08147-pink.svg)](https://arxiv.org/abs/2411.15143)
+
 # dafny-annotator: AI-assisted verification of Dafny Programs
 
 dafny-annotator is a tool that uses Large Language Models (LLMs) to automatically add logical annotations to Dafny programs until they verify. The project has two main components:
