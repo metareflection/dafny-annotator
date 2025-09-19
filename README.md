@@ -10,7 +10,7 @@ dafny-annotator is a tool that uses Large Language Models (LLMs) to automaticall
 
 These two components are described below, as well as the experiment driver used to replicate our end-to-end evaluations with Llama 3.1 8B and CodeLlama 7B.
 
-To start, first create an environment (virtualenv or conda) and run `pip install -r requirements.txt`. You should also install synchromesh in your environment: clone [the repository](https://github.com/kanishkg/synchromesh/), and install it locally with `python setup.py install`.
+To start, first create an environment (virtualenv or conda) and run `pip install -r requirements.txt`. You should also install synchromesh in your environment: clone [the repository](https://github.com/kanishkg/synchromesh/), and install it locally with `python setup.py install` or `pip install .`.
 
 You should also clone the [DafnyBench repository](https://github.com/ChloeL19/DafnyBench/), which is the main training and evaluation set we use.
 
