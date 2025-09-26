@@ -130,5 +130,5 @@ uvicorn server:app --host 127.0.0.1 --port 8000 --log-level debug
 
 Access:
 ```
-curl -X POST "http://localhost:8000/annotate?program=method%20M()%20%7B%7D&num_samples=2"
+curl -X POST "http://localhost:8000/annotate?program=method%20M()%20%7B%7D"
 ```
