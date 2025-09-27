@@ -18,4 +18,5 @@ async def annotate(program: str) -> List[str]:
 async def search(program: str) -> Optional[str]:
     programs = [DafnyProgram(program)]
     results = batch_greedy_search(programs, proposer, 5, None)
-    return results[0]
+    result = results[0]
+    return str(result) if result else None
