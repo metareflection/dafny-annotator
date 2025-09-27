@@ -120,3 +120,17 @@ Currently, this will:
 3. Evaluate each fine-tuned model
 
 Our current findings indicate that the best results are achieved by combining DafnyBench and DafnySynth for training Llama-3 8B, suggesting that our synthetically generated programs can serve to significantly improve our annotator.
+
+# Annotator Server
+
+Run server:
+```
+uvicorn server:app --host 127.0.0.1 --port 8000 --log-level debug
+```
+
+Access examples:
+
+```
+curl -X POST "http://localhost:8000/annotate?program=method%20M()%20%7B%7D"
+curl -X POST "http://localhost:8000/greedy_search?program=method%20SquareRoot%28n%3A%20nat%29%0Areturns%20%28r%3A%20nat%29%0Aensures%20r%2Ar%20%3C%3D%20n%20%3C%3D%20%28r%2B1%29%2A%28r%2B1%29%0A%7B%0A%20%20%20%20r%20%3A%3D%200%3B%0A%20%20%20%20while%20%28r%2B1%29%2A%28r%2B1%29%20%3C%3D%20n%0A%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20r%20%3A%3D%20r%20%2B%201%3B%0A%20%20%20%20%7D%0A%7D"
+```
