@@ -80,7 +80,7 @@ class DafnyProgram:
     def method_line(self) -> int:
         """Return the line number of the focused method declaration."""
         for i in range(len(self.lines) - 1, -1, -1):
-            if 'method' in self.lines[i] or 'function' in self.lines[i]:
+            if 'method' in self.lines[i] or 'function' in self.lines[i] or 'lemma' in self.lines[i]:
                 return i
         return None
 
