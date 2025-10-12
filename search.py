@@ -463,7 +463,7 @@ def main():
         proposer,
         args.max_iterations,
         args.output,
-        arg.localized)
+        args.localized)
 
     for p, r in zip(benchmarks, results):
         print('####', p.name)
