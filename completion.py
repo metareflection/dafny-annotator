@@ -41,7 +41,7 @@ def make_prompt(test_program: str, with_rationale=False, actions=None, localized
     if not with_rationale:
         PROMPT_RATIONALES = [''] * 4
 
-    WITH_LOCALIZED = " with a {CODE_HERE_MARKER} placeholder" if localied else ""
+    WITH_LOCALIZED = " with a {CODE_HERE_MARKER} placeholder" if localized else ""
     CODE_HERE = f"\n     {CODE_HERE_MARKER}" if localized else ""
 
     return f"""Given each Dafny program{WITH_LOCALIZED}, propose an assertion, invariant or decreases statement in order to verify the program.
