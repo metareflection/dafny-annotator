@@ -143,12 +143,8 @@ class VLLMProposer(Proposer):
         Returns:
             list[list[str]]: A list of lists of proposed annotations for each node.
         """
-        p = node.program()
-        if self._localized:
-            #TODO
-            #assert CODE_HERE_MARKER in p
-            pass
-        prompts = [make_prompt(str(p), with_rationale=self._with_rationale, localized=self._localized)
+        # TODO: we might need to ensure program has a CODE_HERE_MARKER
+        prompts = [make_prompt(str(node.program()), with_rationale=self._with_rationale, localized=self._localized)
                    for node in nodes]
 
         # NOTE: In the future, we can plug in Synchromesh into vLLM by
