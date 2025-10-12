@@ -1,4 +1,6 @@
 *~
+\#*
+.\#*
 models
 logs
 wandb
