@@ -5,6 +5,7 @@ import os
 import subprocess
 from typing import Optional
 
+RESULTS_DIR = 'results_localized'
 MAYBE_LOCALIZED = ['--localized']
 
 def run(args: list[str], check: bool = True):
@@ -33,7 +34,7 @@ def run_base_model_experiment(
 ):
     """Run an experiment with a base model (no fine-tuning)."""
     model_name = base_model.split('/')[-1]
-    result_path = os.path.join(f'results/base-{model_name}.json')
+    result_path = os.path.join(f'{RESULTS_DIR}/base-{model_name}.json')
 
     if not os.path.exists(result_path):
         run(['python', 'search.py',
@@ -72,7 +73,7 @@ def run_dafnybench_finetuning_experiment(
     suffix = '+graph' if include_graph else ''
 
     result_path = os.path.join(
-        f'results/finetuned-{model_name}-db{ft_percent}{suffix}.json')  # noqa
+        f'{RESULTS_DIR}/finetuned-{model_name}-db{ft_percent}{suffix}.json')  # noqa
 
     training_set_path = f'data/finetuning_examples_{finetuning_fraction}.json'
     model_path = f'models/finetuned_{model_name}_db{ft_percent}{suffix}'
