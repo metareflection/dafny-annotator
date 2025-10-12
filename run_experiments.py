@@ -5,6 +5,7 @@ import os
 import subprocess
 from typing import Optional
 
+MAYBE_LOCALIZED = ['--localized']
 
 def run(args: list[str], check: bool = True):
     """Run the given command and check that it succeeds."""
@@ -38,7 +39,7 @@ def run_base_model_experiment(
         run(['python', 'search.py',
              '--num-programs', str(n_eval_programs),
              '--output', result_path,
-             '--model', base_model])
+             '--model', base_model] + MAYBE_LOCALIZED)
         kill_dafny()
 
     print_done(result_path)
@@ -83,7 +84,7 @@ def run_dafnybench_finetuning_experiment(
                  '--extract-direct',
                  '--skip', str(n_skip),
                  '--output', training_set_path,
-                 ])
+                 ] + MAYBE_LOCALIZED)
 
             training_set = [training_set_path]
 
@@ -95,7 +96,7 @@ def run_dafnybench_finetuning_experiment(
                     '--extract-direct-from-graph',
                     '--graph', include_graph,
                     '--output', graph_examples,
-                    ])
+                    ] + MAYBE_LOCALIZED)
                 training_set.append(graph_examples)
 
             # 3- Fine-tune
@@ -104,14 +105,14 @@ def run_dafnybench_finetuning_experiment(
                  '--model', base_model,
                  '--training-set', *training_set,
                  '--output', model_path,
-                 ])
+                 ] + MAYBE_LOCALIZED)
 
         # 4- Evaluate
         run(['python', 'search.py',
              '--num-programs', str(n_eval_programs),
              '--output', result_path,
              '--model', model_path,
-             ])
+             ] + MAYBE_LOCALIZED)
         kill_dafny()
 
     print_done(result_path)

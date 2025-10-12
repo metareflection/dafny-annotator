@@ -171,7 +171,7 @@ class DafnyProgram:
         """Return the annotations that are in this program but not in rhs."""
         return set(self.annotations()) - set(rhs.annotations())
 
-    def extract_examples(self) -> list[('DafnyProgram', str)]:
+    def extract_examples(self, localized=False) -> list[('DafnyProgram', str)]:
         """Extract annotation prediction examples from this program."""
         examples = []
 
@@ -181,10 +181,10 @@ class DafnyProgram:
             line_number, annotation, program = program.strip_first_annotation()
             if line_number is None:
                 break
-            examples.append((program, annotation))
+            example_program = program if not localized else program.insert(line_number, "/*[CODE HERE]*/")
+            examples.append((example_program, annotation))
 
         return examples
-
 
 def verify_program_with_timeout(program: DafnyProgram, timeout: float):
     """Verify a DafnyProgram in a separate process with a timeout."""

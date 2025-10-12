@@ -9,6 +9,8 @@ RATIONALE_ANNOTATION_REGEX = regex.compile(f'({END})\\n|({RATIONALE_PATTERN}\\s*
 RATIONALE_ONLY_REGEX = regex.compile(f'({END})\\n|(\\s*(assert|invariant|decreases) )')
 INVARIANT_REGEX = regex.compile('[^\\n]{0,100}\\n')
 
+CODE_HERE_MARKER = "/*[CODE HERE]*/"
+
 class DafnyActionCompletionEngine:
     def __init__(self, current_program, with_rationale=False):
         self._current_program_lines = current_program.split('\n')
@@ -28,7 +30,7 @@ class DafnyActionCompletionEngine:
         return prefix.endswith(f'{END}\n')
 
 
-def make_prompt(test_program: str, with_rationale=False, actions=None) -> str:
+def make_prompt(test_program: str, with_rationale=False, actions=None, localized=False) -> str:
     PROMPT_RATIONALES = [
         '[Bound the index] ',
         '[Adapt the first ensures clause as an invariant] ',
@@ -39,7 +41,10 @@ def make_prompt(test_program: str, with_rationale=False, actions=None) -> str:
     if not with_rationale:
         PROMPT_RATIONALES = [''] * 4
 
-    return f"""Given each Dafny program, propose an assertion, invariant or decreases statement in order to verify the program.
+    WITH_LOCALIZED = " with a {CODE_HERE_MARKER} placeholder" if localied else ""
+    CODE_HERE = f"\n     {CODE_HERE_MARKER}" if localized else ""
+
+    return f"""Given each Dafny program{WITH_LOCALIZED}, propose an assertion, invariant or decreases statement in order to verify the program.
 Program 1:
 method maxArray(a: array<int>) returns (m: int)
   requires a.Length >= 1
@@ -48,7 +53,7 @@ method maxArray(a: array<int>) returns (m: int)
 {{
   m := a[0];
   var index := 1;
-  while (index < a.Length)
+  while (index < a.Length){CODE_HERE}
      decreases a.Length - index
   {{
     m := if m>a[index] then  m else a[index];
@@ -68,7 +73,7 @@ method intersperse(numbers: seq<int>, delimiter: int) returns (interspersed: seq
                 interspersed[i] == delimiter
 {{
     interspersed := [];
-    for i := 0 to |numbers|
+    for i := 0 to |numbers|{CODE_HERE}
     {{
         if i > 0 {{
             interspersed := interspersed + [delimiter];

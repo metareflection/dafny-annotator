@@ -18,7 +18,7 @@ import torch
 from tqdm import tqdm
 
 from program import DafnyProgram, VerificationOutcome, parallel_verify_batch
-from completion import END, make_prompt
+from completion import END, CODE_HERE_MARKER, make_prompt
 from annotator import load_benchmarks
 
 
@@ -116,7 +116,8 @@ class VLLMProposer(Proposer):
             tokenizer=None,
             num_proposals: int = 2,
             temperature: float = 1.0,
-            with_rationale: bool = False
+            with_rationale: bool = False,
+            localized: bool = False
     ):
         # noqa
         self._llm = LLM(model=model_name,
@@ -130,6 +131,7 @@ class VLLMProposer(Proposer):
             max_tokens=300,
         )
         self._with_rationale = with_rationale
+        self._localized = localized
 
     def propose(self, nodes: list[SearchNode]) -> list[list[str]]:
         """
@@ -141,7 +143,12 @@ class VLLMProposer(Proposer):
         Returns:
             list[list[str]]: A list of lists of proposed annotations for each node.
         """
-        prompts = [make_prompt(str(node.program()), with_rationale=self._with_rationale)
+        p = node.program()
+        if self._localized:
+            #TODO
+            #assert CODE_HERE_MARKER in p
+            pass
+        prompts = [make_prompt(str(p), with_rationale=self._with_rationale, localized=self._localized)
                    for node in nodes]
 
         # NOTE: In the future, we can plug in Synchromesh into vLLM by
@@ -343,7 +350,8 @@ def select_programs_to_verify(
 def batch_greedy_search(programs: list[DafnyProgram],
                         proposer: Proposer,
                         max_iterations: int = 5,
-                        save_results_path: Optional[str] = None
+                        save_results_path: Optional[str] = None,
+                        localized = False
                         ) -> list[Optional[DafnyProgram]]:
     """
     Perform batch greedy search to annotate programs for verification.
@@ -435,12 +443,13 @@ def main():
                         help='Path to the verification outcome cache.')
     parser.add_argument('--max-program-length', type=int, default=2048,
                         help='Filter out benchmark programs larger than this.')
+    parser.add_argument('--localized', action='store_true', help='Localize annotations')
     args = parser.parse_args()
 
     programs = load_benchmarks(args.benchmark_path)
     programs = [p.strip_annotations() for p in programs]
 
-    proposer = VLLMProposer(model_name=args.model, with_rationale=False)
+    proposer = VLLMProposer(model_name=args.model, with_rationale=False, localized=args.localized)
 
     # Select programs to verify
     benchmarks = select_programs_to_verify(
@@ -453,7 +462,8 @@ def main():
         benchmarks,
         proposer,
         args.max_iterations,
-        args.output)
+        args.output,
+        arg.localized)
 
     for p, r in zip(benchmarks, results):
         print('####', p.name)
