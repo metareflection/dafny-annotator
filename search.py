@@ -50,6 +50,25 @@ class SearchNode:
         """
         return self._program
 
+    def enumerate_successors_for_localized_annotations(
+            self,
+            annotations: list[str]
+    ) -> list['SearchNode']:
+        """
+        Generate successor nodes by inserting the given annotations at valid positions.
+
+        Args:
+            annotations (list[str]): The annotations to insert.
+
+        Returns:
+            list[SearchNode]: A list of successor nodes.
+        """
+        indices = [i for i,line in enumerate(self._program.lines) if line.strip()==CODE_HERE_MARKER]
+        if len(indices) > 0:
+            i = indices[0]
+            return [self._program.insert(i, annotation) for annotation in annotations]
+        return self.enumerate_successors_with_annotations(annotations)
+
     def enumerate_successors_with_annotations(
             self,
             annotations: list[str]
@@ -133,6 +152,15 @@ class VLLMProposer(Proposer):
         self._with_rationale = with_rationale
         self._localized = localized
 
+    def localized_programs(self, node: SearchNode) -> list[str]:
+        p = str(node.program())
+        if not self._localized:
+            return [p]
+        if CODE_HERE_MARKER in p:
+            return [p]
+        states = node.enumerate_successors_with_annotations([CODE_HERE_MARKER])
+        return [str(state.program()) for state in states]
+
     def propose(self, nodes: list[SearchNode]) -> list[list[str]]:
         """
         Make proposals for a batch of search nodes.
@@ -143,9 +171,8 @@ class VLLMProposer(Proposer):
         Returns:
             list[list[str]]: A list of lists of proposed annotations for each node.
         """
-        # TODO: we might need to ensure program has a CODE_HERE_MARKER
-        prompts = [make_prompt(str(node.program()), with_rationale=self._with_rationale, localized=self._localized)
-                   for node in nodes]
+        prompts = [make_prompt(program, with_rationale=self._with_rationale, localized=self._localized)
+                   for node in nodes for program in self.localized_programs(node)]
 
         # NOTE: In the future, we can plug in Synchromesh into vLLM by
         # using a logit_processor sampling param.
@@ -222,6 +249,9 @@ class GreedySearch(SearchAlgorithm):
     In this search algorithm, the state is a single program node.
     """
 
+    def __init__(self, localized=False):
+        self._localized = localized
+
     def initial_state(self, program: DafnyProgram) -> SearchNode:
         """
         Initialize the search state with the given program.
@@ -246,7 +276,10 @@ class GreedySearch(SearchAlgorithm):
         Returns:
             SearchNode: The next search node.
         """
-        successors = state.enumerate_successors_with_annotations(proposals)
+        if self._localized:
+            successors = state.enumerate_successors_for_localized_annotations(proposals)
+        else:
+            successors = state.enumerate_successors_with_annotations(proposals)
 
         if len(successors) > 100:
             successors = successors[:100]
@@ -365,7 +398,7 @@ def batch_greedy_search(programs: list[DafnyProgram],
     result = [None] * len(nodes)
     is_done = [False] * len(nodes)
 
-    method = GreedySearch()
+    method = GreedySearch(localized=localized)
 
     # Initialize the state for each program
     states = nodes
