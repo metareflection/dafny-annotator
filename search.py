@@ -66,7 +66,7 @@ class SearchNode:
         indices = [i for i,line in enumerate(self._program.lines) if line.strip()==CODE_HERE_MARKER]
         if len(indices) > 0:
             i = indices[0]
-            return [self._program.insert(i, annotation) for annotation in annotations]
+            return [SearchNode(self._program.insert(i, annotation).remove_line(i)) for annotation in annotations]
         return self.enumerate_successors_with_annotations(annotations)
 
     def enumerate_successors_with_annotations(
