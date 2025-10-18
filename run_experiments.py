@@ -53,18 +53,12 @@ def run_vfp_finetuning_experiment(
     """Run an experiment with fine-tuning on VFP."""
     model_name = base_model.split('/')[-1]
     result_path = os.path.join(f'{RESULTS_DIR}/vfp-finetuned-{model_name}.json')
-    training_set_path = f'data/vfp-finetuning_examples.json'
+    training_set_path = f'data/vfp.json'
     training_set = [training_set_path]
     model_path = f'models/vfp-finetuned_{model_name}'
     if not os.path.exists(result_path):
         if not os.path.exists(model_path):
-            # 1- Collect training set
-            run(['python', 'training.py',
-                 '--training-set', 'data/vfp.json',
-                 '--extract-direct',
-                 '--output', training_set_path,
-                 ] + MAYBE_LOCALIZED)
-            # 2- Fine-tune
+            # 1- Fine-tune
             run(['python', 'training.py',
                  '--finetune',
                  '--model', base_model,
@@ -72,7 +66,7 @@ def run_vfp_finetuning_experiment(
                  '--output', model_path,
                  ] + MAYBE_LOCALIZED)
 
-        # 3- Evaluate
+        # 2- Evaluate
         run(['python', 'search.py',
              '--num-programs', str(n_eval_programs),
              '--output', result_path,
