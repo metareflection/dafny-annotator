@@ -5,8 +5,8 @@ import os
 import subprocess
 from typing import Optional
 
-RESULTS_DIR = os.environ("RESULTS_DIR", 'results')
-LOCALIZED = os.environ("LOCALIZED", 'false') != 'false'
+RESULTS_DIR = os.environ.get("RESULTS_DIR", 'results')
+LOCALIZED = os.environ.get("LOCALIZED", 'false') != 'false'
 MAYBE_LOCALIZED = ['--localized'] if LOCALIZED else []
 
 def run(args: list[str], check: bool = True):
@@ -128,7 +128,7 @@ def main():
 
     BASE_MODELS = [
         'meta-llama/Meta-Llama-3.1-8B',
-        'meta-llama/CodeLlama-7b-hf',
+        #'meta-llama/CodeLlama-7b-hf',
     ]
 
     for m in BASE_MODELS:
