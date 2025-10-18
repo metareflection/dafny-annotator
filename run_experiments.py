@@ -5,6 +5,7 @@ import os
 import subprocess
 from typing import Optional
 
+VFP_PROMPT = os.environ.get('VFP_PROMPT', 'false') != 'false'
 RESULTS_DIR = os.environ.get("RESULTS_DIR", 'results')
 LOCALIZED = os.environ.get("LOCALIZED", 'false') != 'false'
 MAYBE_LOCALIZED = ['--localized'] if LOCALIZED else []
@@ -179,4 +180,7 @@ def main_vfp():
         run_vfp_finetuning_experiment(N_EVAL_PROGRAMS, m)
 
 if __name__ == '__main__':
-    main_vfp()
+    if VFP_PROMPT:
+        main_vfp()
+    else:
+        main()
