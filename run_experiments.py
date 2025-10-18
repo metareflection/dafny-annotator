@@ -46,6 +46,41 @@ def run_base_model_experiment(
 
     print_done(result_path)
 
+def run_vfp_finetuning_experiment(
+    n_eval_programs: int,
+    base_model: str
+):
+    """Run an experiment with fine-tuning on VFP."""
+    model_name = base_model.split('/')[-1]
+    result_path = os.path.join(f'{RESULTS_DIR}/vfp-finetuned-{model_name}.json')
+    training_set_path = f'data/vfp-finetuning_examples.json'
+    training_set = [training_set_path]
+    model_path = f'models/vfp-finetuned_{model_name}'
+    if not os.path.exists(result_path):
+        if not os.path.exists(model_path):
+            # 1- Collect training set
+            run(['python', 'training.py',
+                 '--training-set', 'data/vfp.json',
+                 '--extract-direct',
+                 '--output', training_set_path,
+                 ] + MAYBE_LOCALIZED)
+            # 2- Fine-tune
+            run(['python', 'training.py',
+                 '--finetune',
+                 '--model', base_model,
+                 '--training-set', *training_set,
+                 '--output', model_path,
+                 ] + MAYBE_LOCALIZED)
+
+        # 3- Evaluate
+        run(['python', 'search.py',
+             '--num-programs', str(n_eval_programs),
+             '--output', result_path,
+             '--model', model_path,
+             ] + MAYBE_LOCALIZED)
+        kill_dafny()
+
+    print_done(result_path)
 
 def run_dafnybench_finetuning_experiment(
     n_eval_programs: int,
@@ -141,5 +176,13 @@ def main():
             for f in TRAINING_SET_FRACTIONS:
                 run_dafnybench_finetuning_experiment(N_EVAL_PROGRAMS, m, f, include_graph=graph)
 
+def main_vfp():
+    N_EVAL_PROGRAMS = 10
+    BASE_MODELS = [
+        'meta-llama/Meta-Llama-3.1-8B',
+    ]
+    for m in BASE_MODELS:
+        run_vfp_finetuning_experiment(N_EVAL_PROGRAMS, m)
+
 if __name__ == '__main__':
-    main()
+    main_vfp()
