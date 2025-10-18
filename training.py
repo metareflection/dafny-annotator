@@ -19,7 +19,7 @@ from annotator import load_nontrivial_benchmarks, load_benchmarks
 from program import VerificationOutcome
 import completion
 
-
+VFP_PROMPT = os.environ.get('VFP_PROMPT', 'false') != 'false'
 
 
 def print_nontrivial(args):
@@ -36,7 +36,7 @@ def trim_program(program: str, max_length: int = 1000):
 def rationalize(program, annotation):
     prompt = [
         {"role": "system",
-         "content": "You are a Dafny expert. The user will give you a sequence of Dafny program that is missing an annotation (assertion or invariant). They will also give you the missing assertion or invariant. Your job is to provide a very short, concise rationale that would be a useful hint for someone coming up with that assertion or invariant."},
+         "content": f"You are a Dafny expert. The user will give you a sequence of Dafny program that is missing an annotation (assertion or invariant{' or helper lemma call' if VFP_PROMPT else ''}). They will also give you the missing assertion or invariant{' or helper lemma call' if VFP_PROMPT else ''}. Your job is to provide a very short, concise rationale that would be a useful hint for someone coming up with that assertion or invariant{' or helper lemma call' if VFP_PROMPT else ''}."},
         {
             "role": "user",
             "content": f"""Program: method intersperse(numbers: seq<int>, delimiter: int) returns (interspersed: seq<int>)

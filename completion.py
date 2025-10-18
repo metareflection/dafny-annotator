@@ -53,7 +53,7 @@ def make_prompt(test_program: str, with_rationale=False, actions=None, localized
     WITH_LOCALIZED = " with a {CODE_HERE_MARKER} placeholder" if localized else ""
     CODE_HERE = f"\n     {CODE_HERE_MARKER}" if localized else ""
 
-    return f"""Given each Dafny program{WITH_LOCALIZED}, propose an assertion, invariant or decreases statement in order to verify the program.
+    return f"""Given each Dafny program{WITH_LOCALIZED}, propose an assertion, invariant{', helper lemma call' if VFP_PROMPT else ''} or decreases statement in order to verify the program.
 Program 1:
 method maxArray(a: array<int>) returns (m: int)
   requires a.Length >= 1
