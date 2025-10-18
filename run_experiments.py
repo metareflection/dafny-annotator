@@ -5,8 +5,9 @@ import os
 import subprocess
 from typing import Optional
 
-RESULTS_DIR = 'results_localized'
-MAYBE_LOCALIZED = ['--localized']
+RESULTS_DIR = os.environ("RESULTS_DIR", 'results')
+LOCALIZED = os.environ("LOCALIZED", 'false') != 'false'
+MAYBE_LOCALIZED = ['--localized'] if LOCALIZED else []
 
 def run(args: list[str], check: bool = True):
     """Run the given command and check that it succeeds."""
