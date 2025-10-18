@@ -10,8 +10,8 @@ END = 'END###'
 RATIONALE_PATTERN = '\\s?[[^\\]]*\\]'
 INVARIANT_REGEX = regex.compile('[^\\n]{0,100}\\n')
 if VFP_PROMPT:
-    RATIONALE_ANNOTATION_REGEX = regex.compile(f'({END})\\n|({RATIONALE_PATTERN}\\s*(((assert|invariant|decreases) )|([^ \\n]*[(])))')
-    RATIONALE_ONLY_REGEX = regex.compile(f'({END})\\n|((\\s*((assert|invariant|decreases) )|([^ \\n]*[(])))')
+    RATIONALE_ANNOTATION_REGEX = regex.compile(f'({END})\\n|({RATIONALE_PATTERN}\\s*(((assert|invariant|decreases) )|([^(; \\n]{1,30}[(])))')
+    RATIONALE_ONLY_REGEX = regex.compile(f'({END})\\n|((\\s*((assert|invariant|decreases) )|([^(; \\n]{1,30}[(])))')
 else:
     RATIONALE_ANNOTATION_REGEX = regex.compile(f'({END})\\n|({RATIONALE_PATTERN}\\s*(assert|invariant|decreases) )')
     RATIONALE_ONLY_REGEX = regex.compile(f'({END})\\n|(\\s*(assert|invariant|decreases) )')
@@ -24,8 +24,8 @@ class DafnyActionCompletionEngine:
         self._with_rationale = with_rationale
 
     def complete(self, prefix: str) -> regex.regex:
-        if VFP_PROMPT:
-            return INVARIANT_REGEX
+        #if VFP_PROMPT:
+        #    return INVARIANT_REGEX
         last_line = prefix.split('\n')[-1]
         if not last_line:
             if self._with_rationale:

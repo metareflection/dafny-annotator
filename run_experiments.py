@@ -67,11 +67,11 @@ def run_vfp_finetuning_experiment(
                  ] + MAYBE_LOCALIZED)
 
         # 2- Evaluate
-        run(['python', 'search.py',
-             '--num-programs', str(n_eval_programs),
-             '--output', result_path,
-             '--model', model_path,
-             ] + MAYBE_LOCALIZED)
+        #run(['python', 'search.py',
+        #     '--num-programs', str(n_eval_programs),
+        #     '--output', result_path,
+        #     '--model', model_path,
+        #     ] + MAYBE_LOCALIZED)
         kill_dafny()
 
     print_done(result_path)
