@@ -2,11 +2,17 @@
 
 import regex
 
+import os
+VFP_PROMPT = os.environ.get('VFP_PROMPT', 'false') != 'false'
+EXTRA_VFP = ''
+if VFP_PROMPT:
+    EXTRA_VFP = '|[^\\n]\\('
+
 END = 'END###'
 
 RATIONALE_PATTERN = '\\s?[[^\\]]*\\]'
-RATIONALE_ANNOTATION_REGEX = regex.compile(f'({END})\\n|({RATIONALE_PATTERN}\\s*(assert|invariant|decreases) )')
-RATIONALE_ONLY_REGEX = regex.compile(f'({END})\\n|(\\s*(assert|invariant|decreases) )')
+RATIONALE_ANNOTATION_REGEX = regex.compile(f'({END})\\n|({RATIONALE_PATTERN}\\s*(assert|invariant|decreases{EXTRA_VFP}) )')
+RATIONALE_ONLY_REGEX = regex.compile(f'({END})\\n|(\\s*(assert|invariant|decreases{EXTRA_VFP}) )')
 INVARIANT_REGEX = regex.compile('[^\\n]{0,100}\\n')
 
 CODE_HERE_MARKER = "/*[CODE HERE]*/"
