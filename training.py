@@ -194,6 +194,23 @@ peft_config = LoraConfig(
     task_type="CAUSAL_LM",
 )
 
+peft_config_gemma = LoraConfig(
+    r=128,
+    use_rslora=True,
+    lora_alpha=128,
+    lora_dropout=0.05,
+    bias="none",
+    task_type="CAUSAL_LM",
+    target_modules=[
+        "down_proj",
+        "o_proj",
+        "k_proj",
+        "q_proj",
+        "gate_proj",
+        "up_proj",
+        "v_proj",
+    ],
+)
 
 def finetune(args):
     dataset = []
@@ -243,7 +260,7 @@ def finetune(args):
             model,
             train_dataset=dataset,
             args=sft_config,
-            peft_config=peft_config,
+            peft_config=peft_config_gemma if 'gemma' in args.model else peft_config,
             data_collator=collator,
             )
 

@@ -175,6 +175,7 @@ def main_vfp():
     N_EVAL_PROGRAMS = 10
     BASE_MODELS = [
         'meta-llama/Meta-Llama-3.1-8B',
+        'google/gemma-3-12b-it'
     ]
     for m in BASE_MODELS:
         run_vfp_finetuning_experiment(N_EVAL_PROGRAMS, m)
