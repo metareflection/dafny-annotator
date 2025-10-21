@@ -67,12 +67,6 @@ def run_vfp_finetuning_experiment(
                  '--output', model_path,
                  ] + MAYBE_LOCALIZED)
 
-        # 2- Evaluate
-        #run(['python', 'search.py',
-        #     '--num-programs', str(n_eval_programs),
-        #     '--output', result_path,
-        #     '--model', model_path,
-        #     ] + MAYBE_LOCALIZED)
         kill_dafny()
 
     print_done(result_path)
@@ -150,11 +144,12 @@ def run_dafnybench_finetuning_experiment(
     print_done(result_path)
 
 BASE_MODELS = [
-    #'meta-llama/Meta-Llama-3.1-8B',
+    'meta-llama/Meta-Llama-3.1-8B',
+    'meta-llama/CodeLlama-7b-hf'
     #'google/gemma-3-12b-it'
     #'Qwen/Qwen3-Coder-30B-A3B-Instruct'
     #'Qwen/Qwen3-4B-Instruct-2507'
-    "deepseek-ai/DeepSeek-Coder-V2-Instruct"
+    #"deepseek-ai/DeepSeek-Coder-V2-Instruct"
 ]
 
 def main():
