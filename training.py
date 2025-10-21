@@ -212,6 +212,24 @@ peft_config_gemma = LoraConfig(
     ],
 )
 
+peft_config_deepseek = LoraConfig(
+    r=8,
+    lora_alpha=16,
+    target_modules=[
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj"
+        #"lm_head"
+    ],
+    lora_dropout=0.05,
+    bias="none",
+    task_type="CAUSAL_LM"
+)
+
 def finetune(args):
     dataset = []
 
@@ -260,7 +278,7 @@ def finetune(args):
             model,
             train_dataset=dataset,
             args=sft_config,
-            peft_config=peft_config_gemma if 'gemma' in args.model else peft_config,
+            peft_config=peft_config_gemma if 'gemma' in args.model.lower() else peft_config_deepseek if 'deepseek' in args.model.lower() else peft_config,
             data_collator=collator,
             )
 

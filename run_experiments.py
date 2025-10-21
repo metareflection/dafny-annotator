@@ -149,17 +149,19 @@ def run_dafnybench_finetuning_experiment(
 
     print_done(result_path)
 
+BASE_MODELS = [
+    #'meta-llama/Meta-Llama-3.1-8B',
+    #'google/gemma-3-12b-it'
+    #'Qwen/Qwen3-Coder-30B-A3B-Instruct'
+    #'Qwen/Qwen3-4B-Instruct-2507'
+    "deepseek-ai/DeepSeek-Coder-V2-Instruct"
+]
 
 def main():
     N_EVAL_PROGRAMS = 326
 
     # Make huggingface tokenizers behave well with multiprocessing.
     os.environ['TOKENIZERS_PARALLELISM'] = 'false'
-
-    BASE_MODELS = [
-        'meta-llama/Meta-Llama-3.1-8B',
-        #'meta-llama/CodeLlama-7b-hf',
-    ]
 
     for m in BASE_MODELS:
         run_base_model_experiment(N_EVAL_PROGRAMS, m)
@@ -173,10 +175,6 @@ def main():
 
 def main_vfp():
     N_EVAL_PROGRAMS = 10
-    BASE_MODELS = [
-        'meta-llama/Meta-Llama-3.1-8B',
-        'google/gemma-3-12b-it'
-    ]
     for m in BASE_MODELS:
         run_vfp_finetuning_experiment(N_EVAL_PROGRAMS, m)
 
