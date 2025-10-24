@@ -150,6 +150,7 @@ BASE_MODELS = [
     #'Qwen/Qwen3-Coder-30B-A3B-Instruct'
     #'Qwen/Qwen3-4B-Instruct-2507'
     #"deepseek-ai/DeepSeek-Coder-V2-Instruct"
+    #'deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct'
 ]
 
 def main():
