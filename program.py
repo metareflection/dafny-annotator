@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from enum import Enum
 
+from completion import CODE_HERE_MARKER
 import dafny
 
 
@@ -181,7 +182,7 @@ class DafnyProgram:
             line_number, annotation, program = program.strip_first_annotation()
             if line_number is None:
                 break
-            example_program = program if not localized else program.insert(line_number, "/*[CODE HERE]*/")
+            example_program = program if not localized else program.insert(line_number, CODE_HERE_MARKER)
             examples.append((example_program, annotation))
 
         return examples
