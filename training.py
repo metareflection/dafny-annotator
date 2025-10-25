@@ -20,6 +20,7 @@ from program import VerificationOutcome
 import completion
 
 VFP_PROMPT = os.environ.get('VFP_PROMPT', 'false') != 'false'
+MULTIGPU = os.environ.get('MULTIGPU', 'false') != 'false'
 
 
 def print_nontrivial(args):
@@ -265,11 +266,12 @@ def finetune(args):
             max_seq_length=1024,
             output_dir=output_dir + '-peft',
             num_train_epochs=3,
+            bf16=True if MULTIGPU else False
             )
 
     model = AutoModelForCausalLM.from_pretrained(
             args.model,
-            device_map="auto",
+            device_map="auto" if not MULTIGPU else None,
             attn_implementation="flash_attention_2",
             torch_dtype=torch.bfloat16,
             )

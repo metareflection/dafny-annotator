@@ -9,6 +9,9 @@ VFP_PROMPT = os.environ.get('VFP_PROMPT', 'false') != 'false'
 RESULTS_DIR = os.environ.get("RESULTS_DIR", 'results')
 LOCALIZED = os.environ.get("LOCALIZED", 'false') != 'false'
 MAYBE_LOCALIZED = ['--localized'] if LOCALIZED else []
+MULTIGPU = os.environ.get('MULTIGPU', 'false') != 'false'
+
+LAUNCH = ['accelerate', 'launch', '--config_file', 'deepspeed_zero3.yaml'] if MULTIGPU else ['python']
 
 def run(args: list[str], check: bool = True):
     """Run the given command and check that it succeeds."""
@@ -60,12 +63,14 @@ def run_vfp_finetuning_experiment(
     if not os.path.exists(result_path):
         if not os.path.exists(model_path):
             # 1- Fine-tune
-            run(['python', 'training.py',
+            cmd = LAUNCH + ['training.py',
                  '--finetune',
                  '--model', base_model,
                  '--training-set', *training_set,
                  '--output', model_path,
-                 ] + MAYBE_LOCALIZED)
+                 ] + MAYBE_LOCALIZED
+            print(' '.join(cmd))
+            run(cmd)
 
         kill_dafny()
 
@@ -126,7 +131,7 @@ def run_dafnybench_finetuning_experiment(
                 training_set.append(graph_examples)
 
             # 3- Fine-tune
-            run(['python', 'training.py',
+            run(LAUNCH + ['training.py',
                  '--finetune',
                  '--model', base_model,
                  '--training-set', *training_set,
@@ -144,12 +149,12 @@ def run_dafnybench_finetuning_experiment(
     print_done(result_path)
 
 BASE_MODELS = [
-    'meta-llama/Meta-Llama-3.1-8B',
-    'meta-llama/CodeLlama-7b-hf'
+    #'meta-llama/Meta-Llama-3.1-8B',
+    #'meta-llama/CodeLlama-7b-hf'
     #'google/gemma-3-12b-it'
     #'Qwen/Qwen3-Coder-30B-A3B-Instruct'
     #'Qwen/Qwen3-4B-Instruct-2507'
-    #"deepseek-ai/DeepSeek-Coder-V2-Instruct"
+    "deepseek-ai/DeepSeek-Coder-V2-Instruct"
     #'deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct'
 ]
 
