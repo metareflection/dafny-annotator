@@ -18,7 +18,7 @@ import torch
 from tqdm import tqdm
 
 from program import DafnyProgram, VerificationOutcome, parallel_verify_batch
-from completion import END, make_prompt
+from completion import END, CODE_HERE_MARKER, make_prompt
 from annotator import load_benchmarks
 
 
@@ -49,6 +49,25 @@ class SearchNode:
             DafnyProgram: The Dafny program.
         """
         return self._program
+
+    def enumerate_successors_for_localized_annotations(
+            self,
+            annotations: list[str]
+    ) -> list['SearchNode']:
+        """
+        Generate successor nodes by inserting the given annotations at valid positions.
+
+        Args:
+            annotations (list[str]): The annotations to insert.
+
+        Returns:
+            list[SearchNode]: A list of successor nodes.
+        """
+        indices = [i for i,line in enumerate(self._program.lines) if line.strip()==CODE_HERE_MARKER]
+        if len(indices) > 0:
+            i = indices[0]
+            return [SearchNode(self._program.insert(i, annotation).remove_line(i)) for annotation in annotations]
+        return self.enumerate_successors_with_annotations(annotations)
 
     def enumerate_successors_with_annotations(
             self,
@@ -113,10 +132,11 @@ class VLLMProposer(Proposer):
     def __init__(
             self,
             model_name: str,
-            tokenizer=None,
+            tokenizer: Optional[str] = None,
             num_proposals: int = 2,
             temperature: float = 1.0,
-            with_rationale: bool = False
+            with_rationale: bool = False,
+            localized: bool = False
     ):
         # noqa
         self._llm = LLM(model=model_name,
@@ -130,6 +150,16 @@ class VLLMProposer(Proposer):
             max_tokens=300,
         )
         self._with_rationale = with_rationale
+        self._localized = localized
+
+    def localized_programs(self, node: SearchNode) -> list[str]:
+        p = str(node.program())
+        if not self._localized:
+            return [p]
+        if CODE_HERE_MARKER in p:
+            return [p]
+        states = node.enumerate_successors_with_annotations([CODE_HERE_MARKER])
+        return [str(state.program()) for state in states]
 
     def propose(self, nodes: list[SearchNode]) -> list[list[str]]:
         """
@@ -141,8 +171,8 @@ class VLLMProposer(Proposer):
         Returns:
             list[list[str]]: A list of lists of proposed annotations for each node.
         """
-        prompts = [make_prompt(str(node.program()), with_rationale=self._with_rationale)
-                   for node in nodes]
+        prompts = [make_prompt(program, with_rationale=self._with_rationale, localized=self._localized)
+                   for node in nodes for program in self.localized_programs(node)]
 
         # NOTE: In the future, we can plug in Synchromesh into vLLM by
         # using a logit_processor sampling param.
@@ -219,6 +249,9 @@ class GreedySearch(SearchAlgorithm):
     In this search algorithm, the state is a single program node.
     """
 
+    def __init__(self, localized=False):
+        self._localized = localized
+
     def initial_state(self, program: DafnyProgram) -> SearchNode:
         """
         Initialize the search state with the given program.
@@ -243,7 +276,10 @@ class GreedySearch(SearchAlgorithm):
         Returns:
             SearchNode: The next search node.
         """
-        successors = state.enumerate_successors_with_annotations(proposals)
+        if self._localized:
+            successors = state.enumerate_successors_for_localized_annotations(proposals)
+        else:
+            successors = state.enumerate_successors_with_annotations(proposals)
 
         if len(successors) > 100:
             successors = successors[:100]
@@ -343,7 +379,8 @@ def select_programs_to_verify(
 def batch_greedy_search(programs: list[DafnyProgram],
                         proposer: Proposer,
                         max_iterations: int = 5,
-                        save_results_path: Optional[str] = None
+                        save_results_path: Optional[str] = None,
+                        localized = False
                         ) -> list[Optional[DafnyProgram]]:
     """
     Perform batch greedy search to annotate programs for verification.
@@ -361,7 +398,7 @@ def batch_greedy_search(programs: list[DafnyProgram],
     result = [None] * len(nodes)
     is_done = [False] * len(nodes)
 
-    method = GreedySearch()
+    method = GreedySearch(localized=localized)
 
     # Initialize the state for each program
     states = nodes
@@ -428,6 +465,8 @@ def main():
                         help='Maximum number of iterations for the search.')
     parser.add_argument('--model', type=str, required=True,
                         help='Name of the LLM model to use.')
+    parser.add_argument('--tokenizer', type=str, required=False,
+                        help='Name of the tokenizer to use.')
     parser.add_argument('--output', type=str, default=None,
                         help='Path to save results as a JSON file.')
     parser.add_argument('--cache-path', type=str,
@@ -435,12 +474,13 @@ def main():
                         help='Path to the verification outcome cache.')
     parser.add_argument('--max-program-length', type=int, default=2048,
                         help='Filter out benchmark programs larger than this.')
+    parser.add_argument('--localized', action='store_true', help='Localize annotations')
     args = parser.parse_args()
 
     programs = load_benchmarks(args.benchmark_path)
     programs = [p.strip_annotations() for p in programs]
 
-    proposer = VLLMProposer(model_name=args.model, with_rationale=False)
+    proposer = VLLMProposer(model_name=args.model, tokenizer=args.tokenizer, with_rationale=False, localized=args.localized)
 
     # Select programs to verify
     benchmarks = select_programs_to_verify(
@@ -453,7 +493,8 @@ def main():
         benchmarks,
         proposer,
         args.max_iterations,
-        args.output)
+        args.output,
+        args.localized)
 
     for p, r in zip(benchmarks, results):
         print('####', p.name)

@@ -2,12 +2,21 @@
 
 import regex
 
+import os
+VFP_PROMPT = os.environ.get('VFP_PROMPT', 'false') != 'false'
+
 END = 'END###'
 
 RATIONALE_PATTERN = '\\s?[[^\\]]*\\]'
-RATIONALE_ANNOTATION_REGEX = regex.compile(f'({END})\\n|({RATIONALE_PATTERN}\\s*(assert|invariant|decreases) )')
-RATIONALE_ONLY_REGEX = regex.compile(f'({END})\\n|(\\s*(assert|invariant|decreases) )')
 INVARIANT_REGEX = regex.compile('[^\\n]{0,100}\\n')
+if VFP_PROMPT:
+    RATIONALE_ANNOTATION_REGEX = regex.compile(f'({END})\\n|({RATIONALE_PATTERN}\\s*(((assert|invariant|decreases) )|([^(; \\n]{1,30}[(])))')
+    RATIONALE_ONLY_REGEX = regex.compile(f'({END})\\n|((\\s*((assert|invariant|decreases) )|([^(; \\n]{1,30}[(])))')
+else:
+    RATIONALE_ANNOTATION_REGEX = regex.compile(f'({END})\\n|({RATIONALE_PATTERN}\\s*(assert|invariant|decreases) )')
+    RATIONALE_ONLY_REGEX = regex.compile(f'({END})\\n|(\\s*(assert|invariant|decreases) )')
+
+CODE_HERE_MARKER = "/*[CODE HERE]*/"
 
 class DafnyActionCompletionEngine:
     def __init__(self, current_program, with_rationale=False):
@@ -15,6 +24,8 @@ class DafnyActionCompletionEngine:
         self._with_rationale = with_rationale
 
     def complete(self, prefix: str) -> regex.regex:
+        #if VFP_PROMPT:
+        #    return INVARIANT_REGEX
         last_line = prefix.split('\n')[-1]
         if not last_line:
             if self._with_rationale:
@@ -28,7 +39,7 @@ class DafnyActionCompletionEngine:
         return prefix.endswith(f'{END}\n')
 
 
-def make_prompt(test_program: str, with_rationale=False, actions=None) -> str:
+def make_prompt(test_program: str, with_rationale=False, actions=None, localized=False) -> str:
     PROMPT_RATIONALES = [
         '[Bound the index] ',
         '[Adapt the first ensures clause as an invariant] ',
@@ -39,7 +50,10 @@ def make_prompt(test_program: str, with_rationale=False, actions=None) -> str:
     if not with_rationale:
         PROMPT_RATIONALES = [''] * 4
 
-    return f"""Given each Dafny program, propose an assertion, invariant or decreases statement in order to verify the program.
+    WITH_LOCALIZED = " with a {CODE_HERE_MARKER} placeholder" if localized else ""
+    CODE_HERE = f"\n     {CODE_HERE_MARKER}" if localized else ""
+
+    return f"""Given each Dafny program{WITH_LOCALIZED}, propose an assertion, invariant{', helper lemma call' if VFP_PROMPT else ''} or decreases statement in order to verify the program.
 Program 1:
 method maxArray(a: array<int>) returns (m: int)
   requires a.Length >= 1
@@ -48,7 +62,7 @@ method maxArray(a: array<int>) returns (m: int)
 {{
   m := a[0];
   var index := 1;
-  while (index < a.Length)
+  while (index < a.Length){CODE_HERE}
      decreases a.Length - index
   {{
     m := if m>a[index] then  m else a[index];
@@ -68,7 +82,7 @@ method intersperse(numbers: seq<int>, delimiter: int) returns (interspersed: seq
                 interspersed[i] == delimiter
 {{
     interspersed := [];
-    for i := 0 to |numbers|
+    for i := 0 to |numbers|{CODE_HERE}
     {{
         if i > 0 {{
             interspersed := interspersed + [delimiter];

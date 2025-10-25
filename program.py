@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from enum import Enum
 
+from completion import CODE_HERE_MARKER
 import dafny
 
 
@@ -134,14 +135,14 @@ class DafnyProgram:
 
         return DafnyProgram('\n'.join(new_lines), self.name)
 
-    def strip_first_annotation(self) -> (int, str, 'DafnyProgram'):
-        """Remove the first annotation in the focused method's body."""
+    def strip_last_annotation(self) -> (int, str, 'DafnyProgram'):
+        """Remove the last annotation in the focused method's body."""
         start_line = self.first_line()
 
         if start_line is None:
             return None, None, self
 
-        for i, line in enumerate(self.lines[start_line + 1:]):
+        for i, line in reversed(list(enumerate(self.lines[start_line + 1:]))):
             line = line.strip()
             first_word = line.split(' ')[0]
             if first_word in ANNOTATION_KEYWORDS:
@@ -171,20 +172,20 @@ class DafnyProgram:
         """Return the annotations that are in this program but not in rhs."""
         return set(self.annotations()) - set(rhs.annotations())
 
-    def extract_examples(self) -> list[('DafnyProgram', str)]:
+    def extract_examples(self, localized=False) -> list[('DafnyProgram', str)]:
         """Extract annotation prediction examples from this program."""
         examples = []
 
         program = self
 
         while True:
-            line_number, annotation, program = program.strip_first_annotation()
+            line_number, annotation, program = program.strip_last_annotation()
             if line_number is None:
                 break
-            examples.append((program, annotation))
+            example_program = program if not localized else program.insert(line_number, CODE_HERE_MARKER)
+            examples.append((example_program, annotation))
 
         return examples
-
 
 def verify_program_with_timeout(program: DafnyProgram, timeout: float):
     """Verify a DafnyProgram in a separate process with a timeout."""

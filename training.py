@@ -19,7 +19,7 @@ from annotator import load_nontrivial_benchmarks, load_benchmarks
 from program import VerificationOutcome
 import completion
 
-
+VFP_PROMPT = os.environ.get('VFP_PROMPT', 'false') != 'false'
 
 
 def print_nontrivial(args):
@@ -36,7 +36,7 @@ def trim_program(program: str, max_length: int = 1000):
 def rationalize(program, annotation):
     prompt = [
         {"role": "system",
-         "content": "You are a Dafny expert. The user will give you a sequence of Dafny program that is missing an annotation (assertion or invariant). They will also give you the missing assertion or invariant. Your job is to provide a very short, concise rationale that would be a useful hint for someone coming up with that assertion or invariant."},
+         "content": f"You are a Dafny expert. The user will give you a sequence of Dafny program that is missing an annotation (assertion or invariant{' or helper lemma call' if VFP_PROMPT else ''}). They will also give you the missing assertion or invariant{' or helper lemma call' if VFP_PROMPT else ''}. Your job is to provide a very short, concise rationale that would be a useful hint for someone coming up with that assertion or invariant{' or helper lemma call' if VFP_PROMPT else ''}."},
         {
             "role": "user",
             "content": f"""Program: method intersperse(numbers: seq<int>, delimiter: int) returns (interspersed: seq<int>)
@@ -110,14 +110,15 @@ def make_direct_examples(
         output_path: str,
         skip: int = 0,
         max_length: int = 2048,
-        unique: bool = False):
+        unique: bool = False,
+        localized: bool = False):
     seen_annotations = set()
 
     programs = load_benchmarks(programs_path or 'DafnyBench/programs')[skip:]
     examples = []
 
     for p in tqdm(programs):
-        examples.extend(p.extract_examples())
+        examples.extend(p.extract_examples(localized=localized))
 
     finetuning_examples = []
 
@@ -175,13 +176,13 @@ def extract_programs_from_graph(json_path: str,
     print(processed_count, 'Dafny files written to', output_dir)
 
 
-def extract_examples_from_graph(graph_path: str, output: str):
+def extract_examples_from_graph(graph_path: str, output: str, localized: bool = False):
     output_dir = os.path.dirname(output)
     print('Output:', output)
     extract_path = output_dir + '-programs'
     os.makedirs(extract_path, exist_ok=True)
     extract_programs_from_graph(graph_path, extract_path)
-    make_direct_examples(extract_path, output, unique=True)
+    make_direct_examples(extract_path, output, unique=True, localized=localized)
 
 
 peft_config = LoraConfig(
@@ -193,6 +194,41 @@ peft_config = LoraConfig(
     task_type="CAUSAL_LM",
 )
 
+peft_config_gemma = LoraConfig(
+    r=128,
+    use_rslora=True,
+    lora_alpha=128,
+    lora_dropout=0.05,
+    bias="none",
+    task_type="CAUSAL_LM",
+    target_modules=[
+        "down_proj",
+        "o_proj",
+        "k_proj",
+        "q_proj",
+        "gate_proj",
+        "up_proj",
+        "v_proj",
+    ],
+)
+
+peft_config_deepseek = LoraConfig(
+    r=8,
+    lora_alpha=16,
+    target_modules=[
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj"
+        #"lm_head"
+    ],
+    lora_dropout=0.05,
+    bias="none",
+    task_type="CAUSAL_LM"
+)
 
 def finetune(args):
     dataset = []
@@ -208,9 +244,9 @@ def finetune(args):
             # FIXME: this should be done during data generation.
             if rationale.startswith('Rationale: '):
                 rationale = rationale[len('Rationale: '):]
-            r['text'] = completion.make_prompt(r['program'], with_rationale=True) + ' [' + rationale + '] ' + r['output'] + '\n' + completion.END
+            r['text'] = completion.make_prompt(r['program'], with_rationale=True, localized=localized) + ' [' + rationale + '] ' + r['output'] + '\n' + completion.END
         else:
-            r['text'] = completion.make_prompt(r['program']) + ' ' + r['output'] + '\n' + completion.END
+            r['text'] = completion.make_prompt(r['program'], localized=args.localized) + ' ' + r['output'] + '\n' + completion.END
 
     dataset = Dataset.from_list(dataset)
 
@@ -242,7 +278,7 @@ def finetune(args):
             model,
             train_dataset=dataset,
             args=sft_config,
-            peft_config=peft_config,
+            peft_config=peft_config_gemma if 'gemma' in args.model.lower() else peft_config_deepseek if 'deepseek' in args.model.lower() else peft_config,
             data_collator=collator,
             )
 
@@ -272,6 +308,7 @@ if __name__ == '__main__':
     parser.add_argument('--model', type=str, help='LLM name or path', default='meta-llama/Meta-Llama-3.1-8B')
     parser.add_argument('--merge-data', action='store_true', help='Merge training sets')
     parser.add_argument('--rationalize', action='store_true', help='Generate rationalization examples')
+    parser.add_argument('--localized', action='store_true', help='Localize annotations')
     parser.add_argument('--extract-direct', action='store_true', help='Generate direct prediction examples')
     parser.add_argument('--extract-direct-from-graph', action='store_true', help='Generate direct prediction examples from a synthetic graph')
     parser.add_argument('--nontrivial', action='store_true', help='Filter and save non-trivial benchmarks')
@@ -292,9 +329,9 @@ if __name__ == '__main__':
     if args.rationalize:
         make_rationalization_examples(args)
     elif args.extract_direct:
-        make_direct_examples(args.programs, args.output, args.skip)
+        make_direct_examples(args.programs, args.output, args.skip, args.localized)
     elif args.extract_direct_from_graph:
-        extract_examples_from_graph(args.graph, args.output)
+        extract_examples_from_graph(args.graph, args.output, args.localized)
     elif args.nontrivial:
         print_nontrivial(args)
     elif args.finetune:
