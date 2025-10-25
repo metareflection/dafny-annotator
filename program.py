@@ -135,14 +135,14 @@ class DafnyProgram:
 
         return DafnyProgram('\n'.join(new_lines), self.name)
 
-    def strip_first_annotation(self) -> (int, str, 'DafnyProgram'):
-        """Remove the first annotation in the focused method's body."""
+    def strip_last_annotation(self) -> (int, str, 'DafnyProgram'):
+        """Remove the last annotation in the focused method's body."""
         start_line = self.first_line()
 
         if start_line is None:
             return None, None, self
 
-        for i, line in enumerate(self.lines[start_line + 1:]):
+        for i, line in reversed(list(enumerate(self.lines[start_line + 1:]))):
             line = line.strip()
             first_word = line.split(' ')[0]
             if first_word in ANNOTATION_KEYWORDS:
@@ -179,7 +179,7 @@ class DafnyProgram:
         program = self
 
         while True:
-            line_number, annotation, program = program.strip_first_annotation()
+            line_number, annotation, program = program.strip_last_annotation()
             if line_number is None:
                 break
             example_program = program if not localized else program.insert(line_number, CODE_HERE_MARKER)
