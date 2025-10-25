@@ -132,7 +132,7 @@ class VLLMProposer(Proposer):
     def __init__(
             self,
             model_name: str,
-            tokenizer=None,
+            tokenizer: Optional[str] = None,
             num_proposals: int = 2,
             temperature: float = 1.0,
             with_rationale: bool = False,
@@ -465,6 +465,8 @@ def main():
                         help='Maximum number of iterations for the search.')
     parser.add_argument('--model', type=str, required=True,
                         help='Name of the LLM model to use.')
+    parser.add_argument('--tokenizer', type=str, required=False,
+                        help='Name of the tokenizer to use.')
     parser.add_argument('--output', type=str, default=None,
                         help='Path to save results as a JSON file.')
     parser.add_argument('--cache-path', type=str,
@@ -478,7 +480,7 @@ def main():
     programs = load_benchmarks(args.benchmark_path)
     programs = [p.strip_annotations() for p in programs]
 
-    proposer = VLLMProposer(model_name=args.model, with_rationale=False, localized=args.localized)
+    proposer = VLLMProposer(model_name=args.model, tokenizer=args.tokenizer, with_rationale=False, localized=args.localized)
 
     # Select programs to verify
     benchmarks = select_programs_to_verify(
