@@ -7,6 +7,7 @@ from typing import Optional
 
 VFP_PROMPT = os.environ.get('VFP_PROMPT', 'false') != 'false'
 VFP_MODULAR = os.environ.get('VFP_MODULAR', 'false') != 'false'
+VFP_EXTENDED = os.environ.get('VFP_EXTENDED', 'false') != 'false'
 RESULTS_DIR = os.environ.get("RESULTS_DIR", 'results')
 LOCALIZED = os.environ.get("LOCALIZED", 'false') != 'false'
 MAYBE_LOCALIZED = ['--localized'] if LOCALIZED else []
@@ -55,7 +56,7 @@ def run_vfp_finetuning_experiment(
     """Run an experiment with fine-tuning on VFP."""
     model_name = base_model.split('/')[-1]
     result_path = os.path.join(f'{RESULTS_DIR}/vfp-finetuned-{model_name}.json')
-    training_set_path = f'data/vfp{"" if not VFP_MODULAR else "_modular"}.json'
+    training_set_path = f'data/vfp{"_extended" if VFP_EXTENDED else "_modular" if VFP_MODULAR else ""}.json'
     training_set = [training_set_path]*3 # overfitting
     model_path = f'models/vfp-finetuned_{model_name}'
     if not os.path.exists(result_path):
@@ -145,8 +146,8 @@ def run_dafnybench_finetuning_experiment(
     print_done(result_path)
 
 BASE_MODELS = [
-    'meta-llama/Meta-Llama-3.1-8B',
-    'meta-llama/CodeLlama-7b-hf'
+    'meta-llama/Meta-Llama-3.1-8B'
+    #'meta-llama/CodeLlama-7b-hf'
     #'google/gemma-3-12b-it'
     #'Qwen/Qwen3-Coder-30B-A3B-Instruct'
     #'Qwen/Qwen3-4B-Instruct-2507'

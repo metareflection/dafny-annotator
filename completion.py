@@ -10,8 +10,8 @@ END = 'END###'
 RATIONALE_PATTERN = '\\s?[[^\\]]*\\]'
 INVARIANT_REGEX = regex.compile('[^\\n]{0,100}\\n')
 if VFP_PROMPT:
-    RATIONALE_ANNOTATION_REGEX = regex.compile(f'({END})\\n|({RATIONALE_PATTERN}\\s*(((assert|invariant|decreases) )|([^(; \\n]{1,30}[(])))')
-    RATIONALE_ONLY_REGEX = regex.compile(f'({END})\\n|((\\s*((assert|invariant|decreases) )|([^(; \\n]{1,30}[(])))')
+    RATIONALE_ANNOTATION_REGEX = regex.compile(f'({END})\\n|({RATIONALE_PATTERN}\\s*(((assert|invariant|decreases|calc|forall) )|([^(; \\n]{1,30}[(])))')
+    RATIONALE_ONLY_REGEX = regex.compile(f'({END})\\n|((\\s*((assert|invariant|decreases|calc|forall) )|([^(; \\n]{1,30}[(])))')
 else:
     RATIONALE_ANNOTATION_REGEX = regex.compile(f'({END})\\n|({RATIONALE_PATTERN}\\s*(assert|invariant|decreases) )')
     RATIONALE_ONLY_REGEX = regex.compile(f'({END})\\n|(\\s*(assert|invariant|decreases) )')
