@@ -9,9 +9,13 @@ END = 'END###'
 
 RATIONALE_PATTERN = '\\s?[[^\\]]*\\]'
 INVARIANT_REGEX = regex.compile('[^\\n]{0,100}\\n')
+# Multiline patterns for calc and forall - match until closing brace with balanced braces
+CALC_PATTERN = 'calc\\s+[=<>!]+\\s*\\{(?:[^{}]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*\\}'
+FORALL_PATTERN = 'forall\\s+[^{]*\\{(?:[^{}]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*\\}'
 if VFP_PROMPT:
-    RATIONALE_ANNOTATION_REGEX = regex.compile(f'({END})\\n|({RATIONALE_PATTERN}\\s*(((assert|invariant|decreases|calc|forall) )|([^(; \\n]{1,30}[(])))')
-    RATIONALE_ONLY_REGEX = regex.compile(f'({END})\\n|((\\s*((assert|invariant|decreases|calc|forall) )|([^(; \\n]{1,30}[(])))')
+    # Allow multiline calc and forall, single-line assert/invariant/decreases, and lemma calls
+    RATIONALE_ANNOTATION_REGEX = regex.compile(f'({END})\\n|({RATIONALE_PATTERN}\\s*(({CALC_PATTERN})|({FORALL_PATTERN})|((assert|invariant|decreases) )|([^(; \\n]{{1,30}}[(])))')
+    RATIONALE_ONLY_REGEX = regex.compile(f'({END})\\n|((\\s*(({CALC_PATTERN})|({FORALL_PATTERN})|((assert|invariant|decreases) )|([^(; \\n]{{1,30}}[(]))))')
 else:
     RATIONALE_ANNOTATION_REGEX = regex.compile(f'({END})\\n|({RATIONALE_PATTERN}\\s*(assert|invariant|decreases) )')
     RATIONALE_ONLY_REGEX = regex.compile(f'({END})\\n|(\\s*(assert|invariant|decreases) )')
