@@ -8,10 +8,12 @@ from typing import Optional
 RESULTS_DIR = os.environ.get("RESULTS_DIR", 'results')
 MODELS_DIR = os.environ.get("MODELS_DIR", 'models')
 
+VFP_SKETCH = os.environ.get('VFP_SKETCH', 'false') != 'false'
 VFP_PROMPT = os.environ.get('VFP_PROMPT', 'false') != 'false'
 VFP_MODULAR = os.environ.get('VFP_MODULAR', 'false') != 'false'
 LOCALIZED = os.environ.get("LOCALIZED", 'false') != 'false'
 MAYBE_LOCALIZED = ['--localized'] if LOCALIZED else []
+MAYBE_SKETCH = ['--sketch'] if VFP_SKETCH else []
 
 def run(args: list[str], check: bool = True):
     """Run the given command and check that it succeeds."""
@@ -57,9 +59,9 @@ def run_vfp_finetuning_experiment(
     """Run an experiment with fine-tuning on VFP."""
     model_name = base_model.split('/')[-1]
     result_path = os.path.join(f'{RESULTS_DIR}/vfp-finetuned-{model_name}.json')
-    training_set_path = f'data/vfp{"" if not VFP_MODULAR else "_modular"}.json'
+    training_set_path = f'data/vfp{"" if not VFP_SKETCH else "_sketch"}{"" if not VFP_MODULAR else "_modular"}.json'
     training_set = [training_set_path]*3 # overfitting
-    model_path = f'{MODELS_DIR}/vfp-finetuned_{model_name}'
+    model_path = f'{MODELS_DIR}/vfp{"-sketch" if VFP_SKETCH else ""}-finetuned_{model_name}'
     if not os.path.exists(result_path):
         if not os.path.exists(model_path):
             # 1- Fine-tune
@@ -68,7 +70,7 @@ def run_vfp_finetuning_experiment(
                  '--model', base_model,
                  '--training-set', *training_set,
                  '--output', model_path,
-                 ] + MAYBE_LOCALIZED)
+                 ] + MAYBE_LOCALIZED + MAYBE_SKETCH)
 
         kill_dafny()
 
@@ -147,11 +149,11 @@ def run_dafnybench_finetuning_experiment(
     print_done(result_path)
 
 BASE_MODELS = [
-    'meta-llama/Meta-Llama-3.1-8B',
-    'meta-llama/CodeLlama-7b-hf'
+    #'meta-llama/Meta-Llama-3.1-8B',
+    #'meta-llama/CodeLlama-7b-hf'
     #'google/gemma-3-12b-it'
     #'Qwen/Qwen3-Coder-30B-A3B-Instruct'
-    #'Qwen/Qwen3-4B-Instruct-2507'
+    'Qwen/Qwen3-4B-Instruct-2507'
     #"deepseek-ai/DeepSeek-Coder-V2-Instruct"
     #'deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct'
 ]

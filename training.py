@@ -245,6 +245,8 @@ def finetune(args):
             if rationale.startswith('Rationale: '):
                 rationale = rationale[len('Rationale: '):]
             r['text'] = completion.make_prompt(r['program'], with_rationale=True, localized=args.localized) + ' [' + rationale + '] ' + r['output'] + '\n' + completion.END
+        elif args.sketch:
+            r['text'] = completion.make_prompt_for_sketch(r['program']) + ' ' + r['output'] + '\n' + completion.END
         else:
             r['text'] = completion.make_prompt(r['program'], localized=args.localized) + ' ' + r['output'] + '\n' + completion.END
 
@@ -309,6 +311,7 @@ if __name__ == '__main__':
     parser.add_argument('--merge-data', action='store_true', help='Merge training sets')
     parser.add_argument('--rationalize', action='store_true', help='Generate rationalization examples')
     parser.add_argument('--localized', action='store_true', help='Localize annotations')
+    parser.add_argument('--sketch', action='store_true', help='Sketch lemmas')
     parser.add_argument('--extract-direct', action='store_true', help='Generate direct prediction examples')
     parser.add_argument('--extract-direct-from-graph', action='store_true', help='Generate direct prediction examples from a synthetic graph')
     parser.add_argument('--nontrivial', action='store_true', help='Filter and save non-trivial benchmarks')

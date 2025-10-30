@@ -9,6 +9,7 @@ NUM_PROPOSALS = int(os.environ.get("NUM_PROPOSALS", "2"))
 LOCALIZED = os.environ.get("LOCALIZED", "false") != "false"
 model_path = os.environ.get("MODEL_PATH", "gpoesia/dafny-annotator-8B")
 tokenizer = os.environ.get("TOKENIZER", "meta-llama/Llama-3.1-8B")
+
 proposer = VLLMProposer(model_path, tokenizer, num_proposals=NUM_PROPOSALS)
 
 app = FastAPI()
