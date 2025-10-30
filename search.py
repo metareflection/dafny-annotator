@@ -187,6 +187,10 @@ class VLLMProposer(Proposer):
 
         for r in responses:
             raw_proposals = [o.text for o in r.outputs]
+            if VFP_SKETCH:
+                proposals.append(raw_proposals)
+                continue
+
             lines = [line.strip()
                      for p in raw_proposals
                      for line in p.split('\n')]
