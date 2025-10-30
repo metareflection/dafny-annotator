@@ -58,7 +58,7 @@ def run_vfp_finetuning_experiment(
 ):
     """Run an experiment with fine-tuning on VFP."""
     model_name = base_model.split('/')[-1]
-    result_path = os.path.join(f'{RESULTS_DIR}/vfp-finetuned-{model_name}.json')
+    result_path = os.path.join(f'{RESULTS_DIR}/vfp{"-sketch" if VFP_SKETCH else ""}-finetuned-{model_name}.json')
     training_set_path = f'data/vfp{"" if not VFP_SKETCH else "_sketch"}{"" if not VFP_MODULAR else "_modular"}.json'
     training_set = [training_set_path]*3 # overfitting
     model_path = f'{MODELS_DIR}/vfp{"-sketch" if VFP_SKETCH else ""}-finetuned_{model_name}'
