@@ -152,6 +152,7 @@ BASE_MODELS = [
     #'google/gemma-3-12b-it'
     #'Qwen/Qwen3-Coder-30B-A3B-Instruct'
     #'Qwen/Qwen3-4B-Instruct-2507'
+    #'zai-org/GLM-4.6'
     #"deepseek-ai/DeepSeek-Coder-V2-Instruct"
     #'deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct'
 ]
