@@ -194,6 +194,23 @@ peft_config = LoraConfig(
     task_type="CAUSAL_LM",
 )
 
+peft_config_qwen_coder = LoraConfig(
+    r=128,
+    use_rslora=True,
+    lora_alpha=128,
+    lora_dropout=0.05,
+    bias="none",
+    task_type="CAUSAL_LM",
+    target_modules=[
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj"
+    ])
+
 peft_config_gemma = LoraConfig(
     r=128,
     use_rslora=True,
@@ -274,11 +291,13 @@ def finetune(args):
             torch_dtype=torch.bfloat16,
             )
 
+    model_lower = args.model.lower()
+
     trainer = SFTTrainer(
             model,
             train_dataset=dataset,
             args=sft_config,
-            peft_config=peft_config_gemma if 'gemma' in args.model.lower() else peft_config_deepseek if 'deepseek' in args.model.lower() else peft_config,
+            peft_config=peft_config_gemma if 'gemma' in model_lower else peft_config_deepseek if 'deepseek' in model_lower else peft_config_qwen_coder if 'qwen' in model_lower and 'coder' in model_lower else peft_config,
             data_collator=collator,
             )
 
