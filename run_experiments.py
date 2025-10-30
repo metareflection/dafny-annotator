@@ -5,9 +5,11 @@ import os
 import subprocess
 from typing import Optional
 
+RESULTS_DIR = os.environ.get("RESULTS_DIR", 'results')
+MODELS_DIR = os.environ.get("MODELS_DIR", 'models')
+
 VFP_PROMPT = os.environ.get('VFP_PROMPT', 'false') != 'false'
 VFP_MODULAR = os.environ.get('VFP_MODULAR', 'false') != 'false'
-RESULTS_DIR = os.environ.get("RESULTS_DIR", 'results')
 LOCALIZED = os.environ.get("LOCALIZED", 'false') != 'false'
 MAYBE_LOCALIZED = ['--localized'] if LOCALIZED else []
 
@@ -57,7 +59,7 @@ def run_vfp_finetuning_experiment(
     result_path = os.path.join(f'{RESULTS_DIR}/vfp-finetuned-{model_name}.json')
     training_set_path = f'data/vfp{"" if not VFP_MODULAR else "_modular"}.json'
     training_set = [training_set_path]*3 # overfitting
-    model_path = f'models/vfp-finetuned_{model_name}'
+    model_path = f'{MODELS_DIR}/vfp-finetuned_{model_name}'
     if not os.path.exists(result_path):
         if not os.path.exists(model_path):
             # 1- Fine-tune
@@ -102,7 +104,7 @@ def run_dafnybench_finetuning_experiment(
         f'{RESULTS_DIR}/finetuned-{model_name}-db{ft_percent}{suffix}.json')  # noqa
 
     training_set_path = f'data/finetuning_examples_{finetuning_fraction}.json'
-    model_path = f'models/finetuned_{model_name}_db{ft_percent}{suffix}'
+    model_path = f'{MODELS_DIR}/finetuned_{model_name}_db{ft_percent}{suffix}'
 
     if not os.path.exists(result_path):
         if not os.path.exists(model_path):
