@@ -63,7 +63,7 @@ def run_vfp_finetuning_experiment(
     model_name = base_model.split('/')[-1]
     result_path = os.path.join(f'{RESULTS_DIR}/vfp-finetuned-{model_name}.json')
     training_set_path = f'data/vfp{"" if not VFP_MODULAR else "_modular"}.json'
-    training_set = [training_set_path]*3 # overfitting
+    training_set = [training_set_path]
     model_path = f'{MODELS_DIR}/vfp-finetuned_{model_name}'
     if not os.path.exists(result_path):
         if not os.path.exists(model_path):
