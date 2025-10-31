@@ -15,6 +15,8 @@ MAYBE_LOCALIZED = ['--localized'] if LOCALIZED else []
 MULTIGPU = os.environ.get('MULTIGPU', 'false') != 'false'
 
 LAUNCH = ['accelerate', 'launch', '--config_file', 'deepspeed_zero3.yaml'] if MULTIGPU else ['python']
+#LAUNCH = ['accelerate', 'launch', '--multi_gpu', '--num_processes=4']
+#LAUNCH = ['torchrun', '--nproc_per_node=4']
 
 def run(args: list[str], check: bool = True):
     """Run the given command and check that it succeeds."""

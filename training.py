@@ -283,15 +283,19 @@ def finetune(args):
             max_seq_length=1024,
             output_dir=output_dir + '-peft',
             num_train_epochs=3,
-            bf16=True if MULTIGPU else False
+            bf16=True if MULTIGPU else False,
+            per_device_train_batch_size=1
             )
 
     model = AutoModelForCausalLM.from_pretrained(
             args.model,
-            device_map="auto" if not MULTIGPU else None,
+            device_map="auto" if not MULTIGPU else None,#'cuda',
             attn_implementation="flash_attention_2",
             torch_dtype=torch.bfloat16,
             )
+
+    #if MULTIGPU:
+    #    model.to('cuda')
 
     model_lower = args.model.lower()
 
