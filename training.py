@@ -284,7 +284,7 @@ def finetune(args):
             output_dir=output_dir + '-peft',
             num_train_epochs=3,
             bf16=True if MULTIGPU else False,
-            per_device_train_batch_size=2
+            per_device_train_batch_size=4
             )
 
     model = AutoModelForCausalLM.from_pretrained(
