@@ -10,8 +10,9 @@ from tqdm import tqdm
 import openai
 
 from peft import PeftConfig, PeftModel, LoraConfig
+from peft.utils import get_peft_model_state_dict
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from trl import SFTConfig, SFTTrainer, DataCollatorForCompletionOnlyLM
+from trl import SFTConfig, SFTTrainer
 from datasets import Dataset
 import torch
 
@@ -196,6 +197,16 @@ peft_config = LoraConfig(
     task_type="CAUSAL_LM",
 )
 
+peft_config_llama = LoraConfig(
+    r=128,
+    use_rslora=True,
+    lora_alpha=128,
+    lora_dropout=0.05,
+    bias="none",
+    task_type="CAUSAL_LM",
+    target_modules=["q_proj", "v_proj"]
+)
+
 peft_config_qwen_coder = LoraConfig(
     r=128,
     use_rslora=True,
@@ -269,29 +280,25 @@ def finetune(args):
 
     dataset = Dataset.from_list(dataset)
 
-    response_template = "\nAction:"  # completion.RESPONSE_PREFIX
-
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     tokenizer.pad_token = tokenizer.eos_token
 
-    collator = DataCollatorForCompletionOnlyLM(
-            response_template=tokenizer.encode(response_template)[2:],
-            tokenizer=tokenizer)
     output_dir = args.output
 
     sft_config = SFTConfig(
             dataset_text_field="text",
-            max_seq_length=1024,
+            max_length=1024,
             output_dir=output_dir + '-peft',
             num_train_epochs=3,
             bf16=True if MULTIGPU else False,
-            per_device_train_batch_size=BATCH_SIZE
+            per_device_train_batch_size=BATCH_SIZE,
+            completion_only_loss=True,
             )
 
     model = AutoModelForCausalLM.from_pretrained(
             args.model,
             device_map="auto" if not MULTIGPU else None,
-            attn_implementation="flash_attention_2",
+            #attn_implementation="flash_attention_2",
             torch_dtype=torch.bfloat16,
             )
 
@@ -301,15 +308,37 @@ def finetune(args):
             model,
             train_dataset=dataset,
             args=sft_config,
-            peft_config=peft_config_gemma if 'gemma' in model_lower else peft_config_deepseek if 'deepseek' in model_lower else peft_config_qwen_coder if 'qwen' in model_lower and 'coder' in model_lower else peft_config,
-            data_collator=collator,
+            peft_config=peft_config_llama if 'llama' in model_lower else peft_config_gemma if 'gemma' in model_lower else peft_config_deepseek if 'deepseek' in model_lower else peft_config_qwen_coder if 'qwen' in model_lower and 'coder' in model_lower else peft_config,
             )
 
     trainer.train()
-    trainer.model.save_pretrained(output_dir + '-peft')
-    merged_model = trainer.model.merge_and_unload()
-    merged_model.save_pretrained(output_dir)
-    tokenizer.save_pretrained(output_dir)
+
+    import torch.distributed as dist
+    if dist.is_initialized():
+        dist.barrier()
+    local_rank = int(os.environ.get("LOCAL_RANK", "0"))
+    if local_rank == 0:
+        trained_model = trainer.model
+        # if hasattr(trained_model, "module"):
+        #     trained_model = trained_model.module
+
+        # print("=== Step 1: Consolidate state dict from DeepZero/DeepSpeed ===")
+        # # This ensures you have all adapter weights on rank 0 (especially for ZeRO3)
+        # if hasattr(trainer, "model_wrapped") and hasattr(trainer.model_wrapped, "_zero3_consolidated_16bit_state_dict"):
+        #     engine_state_dict = trainer.model_wrapped._zero3_consolidated_16bit_state_dict()
+        #     trained_model.load_state_dict(engine_state_dict, strict=False)
+        # else:
+        #     engine_state_dict = None
+    
+        print("=== Step 2: Save PEFT adapters for debug (optional) ===")
+        trained_model.save_pretrained(output_dir + "-peft")
+
+        print("=== Step 3: Merge adapters and save full model ===")
+        merged_model = trained_model.merge_and_unload()
+        merged_model.save_pretrained(output_dir)
+        tokenizer.save_pretrained(output_dir)
+
+        print(f"Saved to {output_dir}")
 
 
 def merge(input_files, output_file):
