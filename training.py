@@ -274,9 +274,11 @@ def finetune(args):
             # FIXME: this should be done during data generation.
             if rationale.startswith('Rationale: '):
                 rationale = rationale[len('Rationale: '):]
-            r['text'] = completion.make_prompt(r['program'], with_rationale=True, localized=args.localized) + ' [' + rationale + '] ' + r['output'] + '\n' + completion.END
+            r['prompt'] = completion.make_prompt(r['program'], with_rationale=True, localized=args.localized) + ' '
+            r['completion'] =  '[' + rationale + '] ' + r['output'] + '\n' + completion.END
         else:
-            r['text'] = completion.make_prompt(r['program'], localized=args.localized) + ' ' + r['output'] + '\n' + completion.END
+            r['prompt'] = completion.make_prompt(r['program'], localized=args.localized) + ' '
+            r['completion'] = r['output'] + '\n' + completion.END
 
     dataset = Dataset.from_list(dataset)
 
