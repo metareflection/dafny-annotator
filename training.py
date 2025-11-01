@@ -19,6 +19,7 @@ from annotator import load_nontrivial_benchmarks, load_benchmarks
 from program import VerificationOutcome
 import completion
 
+BATCH_SIZE=int(os.environ.get('BATCH_SIZE', '4'))
 VFP_PROMPT = os.environ.get('VFP_PROMPT', 'false') != 'false'
 MULTIGPU = os.environ.get('MULTIGPU', 'false') != 'false'
 
@@ -284,7 +285,7 @@ def finetune(args):
             output_dir=output_dir + '-peft',
             num_train_epochs=3,
             bf16=True if MULTIGPU else False,
-            per_device_train_batch_size=4
+            per_device_train_batch_size=BATCH_SIZE
             )
 
     model = AutoModelForCausalLM.from_pretrained(
