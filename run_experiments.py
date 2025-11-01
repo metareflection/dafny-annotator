@@ -5,11 +5,14 @@ import os
 import subprocess
 from typing import Optional
 
+BASE_MODEL = os.environ.get("BASE_MODEL")
+
 RESULTS_DIR = os.environ.get("RESULTS_DIR", 'results')
 MODELS_DIR = os.environ.get("MODELS_DIR", 'models')
 
 VFP_PROMPT = os.environ.get('VFP_PROMPT', 'false') != 'false'
 VFP_MODULAR = os.environ.get('VFP_MODULAR', 'false') != 'false'
+VFP_MINIMIZED = os.environ.get('VFP_MINIMIZED', 'false') != 'false'
 LOCALIZED = os.environ.get("LOCALIZED", 'false') != 'false'
 MAYBE_LOCALIZED = ['--localized'] if LOCALIZED else []
 
@@ -57,7 +60,7 @@ def run_vfp_finetuning_experiment(
     """Run an experiment with fine-tuning on VFP."""
     model_name = base_model.split('/')[-1]
     result_path = os.path.join(f'{RESULTS_DIR}/vfp-finetuned-{model_name}.json')
-    training_set_path = f'data/vfp{"" if not VFP_MODULAR else "_modular"}.json'
+    training_set_path = f'data/vfp{"" if not VFP_MINIMIZED else "_minimized"}{"" if not VFP_MODULAR else "_modular"}.json'
     training_set = [training_set_path]*3 # overfitting
     model_path = f'{MODELS_DIR}/vfp-finetuned_{model_name}'
     if not os.path.exists(result_path):
@@ -155,7 +158,7 @@ BASE_MODELS = [
     #'zai-org/GLM-4.6'
     #"deepseek-ai/DeepSeek-Coder-V2-Instruct"
     #'deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct'
-]
+] if not BASE_MODEL else [BASE_MODEL]
 
 def main():
     N_EVAL_PROGRAMS = 326
