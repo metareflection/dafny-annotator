@@ -12,7 +12,7 @@ import openai
 from peft import PeftConfig, PeftModel, LoraConfig
 from peft.utils import get_peft_model_state_dict
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from trl import SFTConfig, SFTTrainer
+from trl import SFTConfig, SFTTrainer, DataCollatorForCompletionOnlyLM
 from datasets import Dataset
 import torch
 
@@ -274,27 +274,34 @@ def finetune(args):
             # FIXME: this should be done during data generation.
             if rationale.startswith('Rationale: '):
                 rationale = rationale[len('Rationale: '):]
-            r['prompt'] = completion.make_prompt(r['program'], with_rationale=True, localized=args.localized) + ' '
-            r['completion'] =  '[' + rationale + '] ' + r['output'] + '\n' + completion.END
+            #r['prompt'] = completion.make_prompt(r['program'], with_rationale=True, localized=args.localized) + ' '
+            #r['completion'] =  '[' + rationale + '] ' + r['output'] + '\n' + completion.END
+            r['text'] = completion.make_prompt(r['program'], with_rationale=True, localized=args.localized) + ' [' + rationale + '] ' + r['output'] + '\n' + completion.END
         else:
-            r['prompt'] = completion.make_prompt(r['program'], localized=args.localized) + ' '
-            r['completion'] = r['output'] + '\n' + completion.END
+            #r['prompt'] = completion.make_prompt(r['program'], localized=args.localized) + ' '
+            #r['completion'] = r['output'] + '\n' + completion.END
+            r['text'] = completion.make_prompt(r['program'], localized=args.localized) + ' ' + r['output'] + '\n' + completion.END
 
     dataset = Dataset.from_list(dataset)
 
+    response_template = "\nAction:"  # completion.RESPONSE_PREFIX
+
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     tokenizer.pad_token = tokenizer.eos_token
+
+    collator = DataCollatorForCompletionOnlyLM(
+            response_template=tokenizer.encode(response_template)[2:],
+            tokenizer=tokenizer)
 
     output_dir = args.output
 
     sft_config = SFTConfig(
             dataset_text_field="text",
-            max_length=1024,
+            max_seq_length=1024,
             output_dir=output_dir + '-peft',
             num_train_epochs=3,
             bf16=True if MULTIGPU else False,
             per_device_train_batch_size=BATCH_SIZE,
-            completion_only_loss=True,
             )
 
     model = AutoModelForCausalLM.from_pretrained(
@@ -311,6 +318,7 @@ def finetune(args):
             train_dataset=dataset,
             args=sft_config,
             peft_config=peft_config_llama if 'llama' in model_lower else peft_config_gemma if 'gemma' in model_lower else peft_config_deepseek if 'deepseek' in model_lower else peft_config_qwen_coder if 'qwen' in model_lower and 'coder' in model_lower else peft_config,
+            data_collator=collator,
             )
 
     trainer.train()
