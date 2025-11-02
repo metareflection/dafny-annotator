@@ -18,9 +18,10 @@ import torch
 from tqdm import tqdm
 
 from program import DafnyProgram, VerificationOutcome, parallel_verify_batch
-from completion import END, CODE_HERE_MARKER, make_prompt
+from completion import END, CODE_HERE_MARKER, make_prompt, make_prompt_for_sketch
 from annotator import load_benchmarks
 
+VFP_SKETCH = os.environ.get('VFP_SKETCH', 'false') != 'false'
 
 class SearchNode:
     """
@@ -171,8 +172,11 @@ class VLLMProposer(Proposer):
         Returns:
             list[list[str]]: A list of lists of proposed annotations for each node.
         """
-        prompts = [make_prompt(program, with_rationale=self._with_rationale, localized=self._localized)
-                   for node in nodes for program in self.localized_programs(node)]
+        if VFP_SKETCH:
+            prompts = [make_prompt_for_sketch(str(node.program())) for node in nodes]
+        else:
+            prompts = [make_prompt(program, with_rationale=self._with_rationale, localized=self._localized)
+                       for node in nodes for program in self.localized_programs(node)]
 
         # NOTE: In the future, we can plug in Synchromesh into vLLM by
         # using a logit_processor sampling param.
@@ -183,6 +187,10 @@ class VLLMProposer(Proposer):
 
         for r in responses:
             raw_proposals = [o.text for o in r.outputs]
+            if VFP_SKETCH:
+                proposals.append(raw_proposals)
+                continue
+
             lines = [line.strip()
                      for p in raw_proposals
                      for line in p.split('\n')]

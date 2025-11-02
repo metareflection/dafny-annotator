@@ -10,13 +10,15 @@ BASE_MODEL = os.environ.get("BASE_MODEL")
 RESULTS_DIR = os.environ.get("RESULTS_DIR", 'results')
 MODELS_DIR = os.environ.get("MODELS_DIR", 'models')
 
+VFP_SKETCH = os.environ.get('VFP_SKETCH', 'false') != 'false'
+MAYBE_SKETCH = ['--sketch'] if VFP_SKETCH else []
 VFP_PROMPT = os.environ.get('VFP_PROMPT', 'false') != 'false'
 VFP_MODULAR = os.environ.get('VFP_MODULAR', 'false') != 'false'
 VFP_MINIMIZED = os.environ.get('VFP_MINIMIZED', 'false') != 'false'
 LOCALIZED = os.environ.get("LOCALIZED", 'false') != 'false'
 MAYBE_LOCALIZED = ['--localized'] if LOCALIZED else []
-MULTIGPU = os.environ.get('MULTIGPU', 'false') != 'false'
 
+MULTIGPU = os.environ.get('MULTIGPU', 'false') != 'false'
 LAUNCH = ['accelerate', 'launch', '--config_file', 'deepspeed_zero3.yaml'] if MULTIGPU else ['python']
 
 
@@ -63,10 +65,12 @@ def run_vfp_finetuning_experiment(
 ):
     """Run an experiment with fine-tuning on VFP."""
     model_name = base_model.split('/')[-1]
-    result_path = os.path.join(f'{RESULTS_DIR}/vfp-finetuned-{model_name}.json')
-    training_set_path = f'data/vfp{"" if not VFP_MINIMIZED else "_minimized"}{"" if not VFP_MODULAR else "_modular"}.json'
+
     training_set = [training_set_path]*3 # overfit
-    model_path = f'{MODELS_DIR}/vfp-finetuned_{model_name}'
+    model_path = f'{MODELS_DIR}/vfp{"-sketch" if VFP_SKETCH else ""}-finetuned_{model_name}'
+    result_path = os.path.join(f'{RESULTS_DIR}/vfp{"-sketch" if VFP_SKETCH else ""}-finetuned-{model_name}.json')
+    training_set_path = f'data/vfp{"" if not VFP_SKETCH else "_sketch"}{"" if not VFP_MINIMIZED else "_minimized"}{"" if not VFP_MODULAR else "_modular"}.json'
+    training_set = [training_set_path]*3 # overfitting
     if not os.path.exists(result_path):
         if not os.path.exists(model_path):
             # 1- Fine-tune
@@ -75,10 +79,9 @@ def run_vfp_finetuning_experiment(
                  '--model', base_model,
                  '--training-set', *training_set,
                  '--output', model_path,
-                 ] + MAYBE_LOCALIZED
+                 ] + MAYBE_LOCALIZED + MAYBE_SKETCH)
             print(' '.join(cmd))
             run(cmd)
-
         kill_dafny()
 
     print_done(result_path)
@@ -156,12 +159,17 @@ def run_dafnybench_finetuning_experiment(
     print_done(result_path)
 
 BASE_MODELS = [
+<<<<<<< HEAD
     'meta-llama/Meta-Llama-3.1-8B',
     'meta-llama/CodeLlama-7b-hf'
     #'meta-llama/Llama-3.3-70B-Instruct'
+=======
+    #'meta-llama/Meta-Llama-3.1-8B',
+    #'meta-llama/CodeLlama-7b-hf'
+>>>>>>> sketch
     #'google/gemma-3-12b-it'
     #'Qwen/Qwen3-Coder-30B-A3B-Instruct'
-    #'Qwen/Qwen3-4B-Instruct-2507'
+    'Qwen/Qwen3-4B-Instruct-2507'
     #"deepseek-ai/DeepSeek-Coder-V2-Instruct"
     #'zai-org/GLM-4.6'
     #"deepseek-ai/DeepSeek-Coder-V2-Instruct"

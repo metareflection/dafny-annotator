@@ -17,6 +17,7 @@ else:
     RATIONALE_ONLY_REGEX = regex.compile(f'({END})\\n|(\\s*(assert|invariant|decreases) )')
 
 CODE_HERE_MARKER = "/*[CODE HERE]*/"
+SKETCH_HERE_MARKER = "/*[SKETCH HERE]*/"
 
 class DafnyActionCompletionEngine:
     def __init__(self, current_program, with_rationale=False):
@@ -105,3 +106,10 @@ Action:"""
         return p
 
     return p + ' ' + '\n'.join(actions) + f'\n{END}\n'
+
+def make_prompt_for_sketch(test_program: str) -> str:
+    return f"""Given each Dafny file with {SKETCH_HERE_MARKER}, propose the sketch of a proof for the lemma, such as the skeleton of the inductive case analysis. Use {END} to terminate a proposal.
+
+{test_program}
+
+Action:"""
