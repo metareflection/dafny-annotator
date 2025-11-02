@@ -159,17 +159,12 @@ def run_dafnybench_finetuning_experiment(
     print_done(result_path)
 
 BASE_MODELS = [
-<<<<<<< HEAD
     'meta-llama/Meta-Llama-3.1-8B',
     'meta-llama/CodeLlama-7b-hf'
     #'meta-llama/Llama-3.3-70B-Instruct'
-=======
-    #'meta-llama/Meta-Llama-3.1-8B',
-    #'meta-llama/CodeLlama-7b-hf'
->>>>>>> sketch
     #'google/gemma-3-12b-it'
     #'Qwen/Qwen3-Coder-30B-A3B-Instruct'
-    'Qwen/Qwen3-4B-Instruct-2507'
+    #'Qwen/Qwen3-4B-Instruct-2507'
     #"deepseek-ai/DeepSeek-Coder-V2-Instruct"
     #'zai-org/GLM-4.6'
     #"deepseek-ai/DeepSeek-Coder-V2-Instruct"
