@@ -79,7 +79,7 @@ def run_vfp_finetuning_experiment(
                  '--model', base_model,
                  '--training-set', *training_set,
                  '--output', model_path,
-                 ] + MAYBE_LOCALIZED + MAYBE_SKETCH)
+                 ] + MAYBE_LOCALIZED + MAYBE_SKETCH
             print(' '.join(cmd))
             run(cmd)
         kill_dafny()
