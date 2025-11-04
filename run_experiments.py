@@ -10,6 +10,7 @@ BASE_MODEL = os.environ.get("BASE_MODEL")
 RESULTS_DIR = os.environ.get("RESULTS_DIR", 'results')
 MODELS_DIR = os.environ.get("MODELS_DIR", 'models')
 
+VFP_AUTOGEN = os.environ.get('VFP_AUTOGEN', 'false') != 'false'
 VFP_SKETCH = os.environ.get('VFP_SKETCH', 'false') != 'false'
 MAYBE_SKETCH = ['--sketch'] if VFP_SKETCH else []
 VFP_PROMPT = os.environ.get('VFP_PROMPT', 'false') != 'false'
@@ -67,7 +68,7 @@ def run_vfp_finetuning_experiment(
     model_name = base_model.split('/')[-1]
     model_path = f'{MODELS_DIR}/vfp{"-sketch" if VFP_SKETCH else ""}-finetuned_{model_name}'
     result_path = os.path.join(f'{RESULTS_DIR}/vfp{"-sketch" if VFP_SKETCH else ""}-finetuned-{model_name}.json')
-    training_set_path = f'data/vfp{"" if not VFP_SKETCH else "_sketch"}{"" if not VFP_MINIMIZED else "_minimized"}{"" if not VFP_MODULAR else "_modular"}.json'
+    training_set_path = f'data/vfp{"" if not VFP_AUTOGEN else "_autogen"}{"" if not VFP_SKETCH else "_sketch"}{"" if not VFP_MINIMIZED else "_minimized"}{"" if not VFP_MODULAR else "_modular"}.json'
     training_set = [training_set_path]*3 # overfit
     if not os.path.exists(result_path):
         if not os.path.exists(model_path):
