@@ -293,7 +293,7 @@ def finetune(args):
     tokenizer.pad_token = tokenizer.eos_token
 
     collator = DataCollatorForCompletionOnlyLM(
-            response_template_ids=tokenizer.encode(response_template, add_special_tokens=False),
+            response_template=tokenizer.encode(response_template)[2:],
             tokenizer=tokenizer)
 
     output_dir = args.output
