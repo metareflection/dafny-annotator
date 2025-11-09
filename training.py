@@ -23,6 +23,7 @@ import completion
 BATCH_SIZE=int(os.environ.get('BATCH_SIZE', '4'))
 VFP_PROMPT = os.environ.get('VFP_PROMPT', 'false') != 'false'
 MULTIGPU = os.environ.get('MULTIGPU', 'false') != 'false'
+VFP_SKETCH = os.environ.get('VFP_SKETCH', 'false') != 'false'
 
 
 def print_nontrivial(args):
@@ -204,7 +205,7 @@ peft_config_llama = LoraConfig(
     lora_dropout=0.05,
     bias="none",
     task_type="CAUSAL_LM",
-    target_modules=["q_proj", "v_proj"]
+    target_modules=["q_proj","k_proj","v_proj","o_proj","gate_proj","up_proj","down_proj"]
 )
 
 peft_config_qwen_coder = LoraConfig(
@@ -292,14 +293,14 @@ def finetune(args):
     tokenizer.pad_token = tokenizer.eos_token
 
     collator = DataCollatorForCompletionOnlyLM(
-            response_template=tokenizer.encode(response_template)[2:],
+            response_template_ids=tokenizer.encode(response_template, add_special_tokens=False),
             tokenizer=tokenizer)
 
     output_dir = args.output
 
     sft_config = SFTConfig(
             dataset_text_field="text",
-            max_seq_length=1024,
+            max_seq_length=int(os.environ.get('MAX_SEQ_LENGTH', '2048' if VFP_SKETCH else '1024')),
             output_dir=output_dir + '-peft',
             num_train_epochs=3,
             bf16=True if MULTIGPU else False,

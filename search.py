@@ -23,6 +23,23 @@ from annotator import load_benchmarks
 
 VFP_SKETCH = os.environ.get('VFP_SKETCH', 'false') != 'false'
 
+# Tuning knobs (env-overridable). When VFP_SKETCH is on, we set longer outputs and more coverage by default.
+NUM_PROPOSALS_ENV = os.environ.get("NUM_PROPOSALS", None)
+PROPOSAL_MAX_TOKENS_ENV = os.environ.get("PROPOSAL_MAX_TOKENS", None)
+TEMPERATURE_ENV = os.environ.get("TEMPERATURE", None)
+TOP_P_ENV = os.environ.get("TOP_P", None)
+WITH_RATIONALES_ENV = os.environ.get("WITH_RATIONALES", None)
+
+def _env_default(val, default):
+    return default if val is None else val
+
+# Defaults differ for sketches vs non-sketch
+_DEFAULT_NUM_PROPOSALS = int(_env_default(NUM_PROPOSALS_ENV, "32" if VFP_SKETCH else "2"))
+_DEFAULT_MAX_TOKENS = int(_env_default(PROPOSAL_MAX_TOKENS_ENV, "900" if VFP_SKETCH else "300"))
+_DEFAULT_TEMPERATURE = float(_env_default(TEMPERATURE_ENV, "0.8" if VFP_SKETCH else "1.0"))
+_DEFAULT_TOP_P = float(_env_default(TOP_P_ENV, "0.95" if VFP_SKETCH else "1.0"))  # 1.0 ~ disabled nucleus
+_DEFAULT_WITH_RATIONALES = (_env_default(WITH_RATIONALES_ENV, "true" if VFP_SKETCH else "false") != "false")
+
 class SearchNode:
     """
     Represents a node in the search tree for program annotations.
@@ -145,12 +162,13 @@ class VLLMProposer(Proposer):
                         max_model_len=4096,
                         tensor_parallel_size=torch.cuda.device_count())
         self._sampling_params = SamplingParams(
-            n=num_proposals,
-            temperature=temperature,
+            n=_DEFAULT_NUM_PROPOSALS,
+            temperature=_DEFAULT_TEMPERATURE,
+            top_p=_DEFAULT_TOP_P,
             stop=END,
-            max_tokens=300,
+            max_tokens=_DEFAULT_MAX_TOKENS,
         )
-        self._with_rationale = with_rationale
+        self._with_rationale = (with_rationale or _DEFAULT_WITH_RATIONALES)
         self._localized = localized
 
     def localized_programs(self, node: SearchNode) -> list[str]:

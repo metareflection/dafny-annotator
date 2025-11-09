@@ -14,6 +14,9 @@ VFP_AUTOGEN = os.environ.get('VFP_AUTOGEN', 'false') != 'false'
 VFP_SKETCH = os.environ.get('VFP_SKETCH', 'false') != 'false'
 MAYBE_SKETCH = ['--sketch'] if VFP_SKETCH else []
 VFP_PROMPT = os.environ.get('VFP_PROMPT', 'false') != 'false'
+
+WITH_RATIONALES = os.environ.get('WITH_RATIONALES','false') != 'false'
+MAYBE_RATIONALES = ['--with-rationales'] if WITH_RATIONALES else []
 VFP_MODULAR = os.environ.get('VFP_MODULAR', 'false') != 'false'
 VFP_MINIMIZED = os.environ.get('VFP_MINIMIZED', 'false') != 'false'
 LOCALIZED = os.environ.get("LOCALIZED", 'false') != 'false'
@@ -69,7 +72,11 @@ def run_vfp_finetuning_experiment(
     model_path = f'{MODELS_DIR}/vfp{"-sketch" if VFP_SKETCH else ""}-finetuned_{model_name}'
     result_path = os.path.join(f'{RESULTS_DIR}/vfp{"-sketch" if VFP_SKETCH else ""}-finetuned-{model_name}.json')
     training_set_path = f'data/vfp{"" if not VFP_AUTOGEN else "_autogen"}{"" if not VFP_SKETCH else "_sketch"}{"" if not VFP_MINIMIZED else "_minimized"}{"" if not VFP_MODULAR else "_modular"}.json'
-    training_set = [training_set_path]*3 # overfit
+    training_set = [training_set_path] * (4 if VFP_SKETCH else 3)  # upsample sketches a bit
+    if os.environ.get('MIX_NON_MINIMIZED','false') != 'false':
+        maybe_non_min = training_set_path.replace('_minimized','')
+        if os.path.exists(maybe_non_min):
+            training_set.append(maybe_non_min)
     if not os.path.exists(result_path):
         if not os.path.exists(model_path):
             # 1- Fine-tune
@@ -78,7 +85,7 @@ def run_vfp_finetuning_experiment(
                  '--model', base_model,
                  '--training-set', *training_set,
                  '--output', model_path,
-                 ] + MAYBE_LOCALIZED + MAYBE_SKETCH
+                 ] + MAYBE_LOCALIZED + MAYBE_SKETCH + MAYBE_RATIONALES
             print(' '.join(cmd))
             run(cmd)
         kill_dafny()
